@@ -143,31 +143,39 @@ def interactive_menu(sp_dc):
     entries = list(data.items())
     playlist_names = [info["name"] for _, info in entries]
     main_options = playlist_names + ["Sync all", "Delete all", "Exit"]
+    separator = len(playlist_names)
 
-    def menu(stdscr, options, prompt):
+    def menu(stdscr, options, prompt, sep_at=None):
         curses.curs_set(0)
         current = 0
+        selectable = [i for i, _ in enumerate(options) if sep_at is None or i != sep_at]
 
         while True:
             stdscr.clear()
             stdscr.addstr(0, 0, prompt + "\n")
+            row = 2
             for i, opt in enumerate(options):
-                prefix = "> " if i == current else "  "
-                stdscr.addstr(i + 2, 0, f"{prefix}{opt}")
+                if sep_at is not None and i == sep_at:
+                    stdscr.addstr(row, 0, "  ─────────────────")
+                    row += 1
+                    continue
+                prefix = "> " if i == selectable[current] else "  "
+                stdscr.addstr(row, 0, f"{prefix}{opt}")
+                row += 1
             stdscr.refresh()
 
             key = stdscr.getch()
             if key == curses.KEY_UP and current > 0:
                 current -= 1
-            elif key == curses.KEY_DOWN and current < len(options) - 1:
+            elif key == curses.KEY_DOWN and current < len(selectable) - 1:
                 current += 1
             elif key in (10, 13):
-                return current
+                return selectable[current]
             elif key == ord('q'):
                 return -1
 
     while True:
-        choice = curses.wrapper(menu, main_options, "Select playlist:")
+        choice = curses.wrapper(menu, main_options, "Select playlist:", sep_at=separator)
 
         if choice == -1 or choice == len(main_options) - 1:
             print("Bye!")
