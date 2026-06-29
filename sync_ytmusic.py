@@ -27,7 +27,6 @@ def get_yt_playlist(ytm, playlist_id):
 
 def find_unmatched(spotify_tracks, yt_tracks):
     yt_used = set()
-
     unmatched_spotify = []
     matched_ids = []
 
@@ -40,9 +39,8 @@ def find_unmatched(spotify_tracks, yt_tracks):
                 continue
             yt_title = clean(strip_version(yt_info["title"]))
             yt_artist = clean(yt_info["artists"])
-            title_match = s_title in yt_title or yt_title in s_title
-            artist_match = s_artist in yt_artist or yt_artist in s_artist
-            if title_match and artist_match:
+            if (s_title in yt_title or yt_title in s_title) and \
+               (s_artist in yt_artist or yt_artist in s_artist):
                 matched_ids.append(yt_info["videoId"])
                 yt_used.add(i)
                 found = True
@@ -51,7 +49,6 @@ def find_unmatched(spotify_tracks, yt_tracks):
             unmatched_spotify.append(st)
 
     unmatched_yt = [t for i, t in enumerate(yt_tracks) if i not in yt_used]
-
     return unmatched_spotify, matched_ids, unmatched_yt
 
 
@@ -83,9 +80,7 @@ def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
 
     unmatched_spotify, matched_ids, unmatched_yt = find_unmatched(spotify_tracks, yt_tracks)
 
-    to_remove = [t for t in unmatched_yt]
     to_add = []
-
     if unmatched_spotify:
         print(f"\n{len(unmatched_spotify)} track(s) need searching...")
         for st in unmatched_spotify:
@@ -98,32 +93,31 @@ def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
     else:
         print("\nAll tracks matched!")
 
+    to_remove = [] if preserve else unmatched_yt
+
     print(f"\nTo add: {len(to_add)}")
+    print(f"To remove: {len(to_remove)}")
 
     if to_remove:
-        if preserve:
-            print(f"\nPreserving {len(to_remove)} extra track(s) in YouTube playlist")
-        else:
-            print(f"To remove: {len(to_remove)}")
-            print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
-            for t in to_remove:
-                print(f"  - {t['title']} - {t['artists']}")
-            yt_set_map = {t["videoId"]: t.get("setVideoId") for t in yt_tracks if t.get("setVideoId")}
-            remove_videos = []
-            for t in to_remove:
-                entry = {"videoId": t["videoId"]}
-                if t["videoId"] in yt_set_map:
-                    entry["setVideoId"] = yt_set_map[t["videoId"]]
-                remove_videos.append(entry)
+        print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
+        for t in to_remove:
+            print(f"  - {t['title']} - {t['artists']}")
+        yt_set_map = {t["videoId"]: t.get("setVideoId") for t in yt_tracks if t.get("setVideoId")}
+        remove_videos = []
+        for t in to_remove:
+            entry = {"videoId": t["videoId"]}
+            if t["videoId"] in yt_set_map:
+                entry["setVideoId"] = yt_set_map[t["videoId"]]
+            remove_videos.append(entry)
 
-            for i in range(0, len(remove_videos), 25):
-                batch = remove_videos[i:i + 25]
-                try:
-                    ytm.remove_playlist_items(ytmusic_id, batch)
-                    print(f"  Removed batch {min(i + 25, len(remove_videos))}/{len(remove_videos)}")
-                except Exception as e:
-                    print(f"  Failed removing batch: {e}")
-            print(f"Removed {len(to_remove)} track(s)")
+        for i in range(0, len(remove_videos), 25):
+            batch = remove_videos[i:i + 25]
+            try:
+                ytm.remove_playlist_items(ytmusic_id, batch)
+                print(f"  Removed batch {min(i + 25, len(remove_videos))}/{len(remove_videos)}")
+            except Exception as e:
+                print(f"  Failed removing batch: {e}")
+        print(f"Removed {len(to_remove)} track(s)")
 
     if to_add:
         print("\nAdding missing tracks...")
@@ -133,9 +127,61 @@ def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
     print(f"\nURL: https://music.youtube.com/playlist?list={ytmusic_id}")
 
 
-def interactive_menu(sp_dc, preserve=False):
-    import curses
+class Menu:
+    def __init__(self, items, prompt):
+        self.items = items
+        self.prompt = prompt
 
+    def run(self):
+        import curses
+        return curses.wrapper(self._render)
+
+    def _render(self, stdscr):
+        import curses
+        curses.curs_set(0)
+        current = 0
+
+        while True:
+            stdscr.clear()
+            stdscr.addstr(0, 0, self.prompt + "\n")
+            row = 2
+            for i, item in enumerate(self.items):
+                if item.get("separator"):
+                    stdscr.addstr(row, 0, "  ─────────────────")
+                    row += 1
+                    continue
+                prefix = "> " if i == current else "  "
+                stdscr.addstr(row, 0, f"{prefix}{item['label']}")
+                row += 1
+            stdscr.refresh()
+
+            key = stdscr.getch()
+            selectable = [i for i, it in enumerate(self.items) if not it.get("separator")]
+            cur_pos = selectable.index(current)
+
+            if key == curses.KEY_UP:
+                current = selectable[(cur_pos - 1) % len(selectable)]
+            elif key == curses.KEY_DOWN:
+                current = selectable[(cur_pos + 1) % len(selectable)]
+            elif key in (10, 13):
+                return current
+            elif key == ord('q'):
+                return -1
+
+
+def build_main_menu(entries, preserve):
+    items = []
+    for sid, info in entries:
+        items.append({"label": info["name"], "sid": sid})
+    items.append({"separator": True})
+    items.append({"label": f"Preserve extras: {'ON' if preserve else 'OFF'}", "action": "preserve"})
+    items.append({"label": "Sync all", "action": "sync_all"})
+    items.append({"label": "Delete all", "action": "delete_all"})
+    items.append({"label": "Exit", "action": "exit"})
+    return items
+
+
+def interactive_menu(sp_dc, preserve=False):
     data = load_registry()
 
     if not data:
@@ -144,55 +190,28 @@ def interactive_menu(sp_dc, preserve=False):
         sys.exit(0)
 
     entries = list(data.items())
-    playlist_names = [info["name"] for _, info in entries]
-    preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
-    main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
-    separator = len(playlist_names)
-    sync_all_idx = separator
-    delete_all_idx = separator + 1
-    exit_idx = separator + 2
-
-    def menu(stdscr, options, prompt, sep_before=None):
-        curses.curs_set(0)
-        current = 0
-
-        while True:
-            stdscr.clear()
-            stdscr.addstr(0, 0, prompt + "\n")
-            row = 2
-            for i, opt in enumerate(options):
-                if sep_before is not None and i == sep_before:
-                    stdscr.addstr(row, 0, "  ─────────────────")
-                    row += 1
-                prefix = "> " if i == current else "  "
-                stdscr.addstr(row, 0, f"{prefix}{opt}")
-                row += 1
-            stdscr.refresh()
-
-            key = stdscr.getch()
-            if key == curses.KEY_UP:
-                current = (current - 1) % len(options)
-            elif key == curses.KEY_DOWN:
-                current = (current + 1) % len(options)
-            elif key in (10, 13):
-                return current
-            elif key == ord('q'):
-                return -1
+    items = build_main_menu(entries, preserve)
 
     while True:
-        choice = curses.wrapper(menu, main_options, "Select playlist:", sep_before=separator)
+        menu = Menu(items, "Select playlist:")
+        choice = menu.run()
 
-        if choice == -1 or choice == exit_idx:
+        if choice == -1:
             print("Bye!")
             sys.exit(0)
 
-        if choice == separator:
+        item = items[choice]
+
+        if item.get("action") == "exit":
+            print("Bye!")
+            sys.exit(0)
+
+        if item.get("action") == "preserve":
             preserve = not preserve
-            preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
-            main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
+            items = build_main_menu(entries, preserve)
             continue
 
-        if choice == sync_all_idx:
+        if item.get("action") == "sync_all":
             print("\nSyncing all playlists...")
             for sid, info in entries:
                 print(f"\n{'='*50}")
@@ -200,16 +219,26 @@ def interactive_menu(sp_dc, preserve=False):
             print("\nAll done!")
             sys.exit(0)
 
-        if choice == delete_all_idx:
-            confirm = curses.wrapper(menu, ["Yes, delete all", "No, go back"], "Delete ALL playlists?")
-            if confirm == 0:
+        if item.get("action") == "delete_all":
+            confirm_menu = Menu([
+                {"label": "Yes, delete all"},
+                {"label": "No, go back"},
+            ], "Delete ALL playlists?")
+            if confirm_menu.run() == 0:
                 save_registry({})
                 print(f"Removed all {len(entries)} playlist(s).")
                 sys.exit(0)
             continue
 
-        sid, info = entries[choice]
-        action = curses.wrapper(menu, ["Sync", "Delete", "Back"], f"{info['name']}:")
+        sid = item["sid"]
+        info = data[sid]
+
+        sub_menu = Menu([
+            {"label": "Sync"},
+            {"label": "Delete"},
+            {"label": "Back"},
+        ], f"{info['name']}:")
+        action = sub_menu.run()
 
         if action == 0:
             print(f"\nSyncing: {info['name']}")
@@ -221,11 +250,10 @@ def interactive_menu(sp_dc, preserve=False):
             data.pop(sid)
             save_registry(data)
             entries = list(data.items())
-            playlist_names = [info["name"] for _, info in entries]
-            main_options = playlist_names + ["Sync all", "Exit"]
             if not entries:
                 print("All playlists removed.")
                 sys.exit(0)
+            items = build_main_menu(entries, preserve)
 
 
 def main():
