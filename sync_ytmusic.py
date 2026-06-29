@@ -26,7 +26,6 @@ def get_yt_playlist(ytm, playlist_id):
 
 
 def find_unmatched(spotify_tracks, yt_tracks):
-    yt_titles = {clean(strip_version(t["title"])): t for t in yt_tracks}
     yt_used = set()
 
     unmatched_spotify = []
@@ -34,19 +33,24 @@ def find_unmatched(spotify_tracks, yt_tracks):
 
     for st in spotify_tracks:
         s_title = clean(strip_version(st["name"]))
+        s_artist = clean(st["artists"])
         found = False
-        for yt_title, yt_info in yt_titles.items():
-            if yt_title in yt_used:
+        for i, yt_info in enumerate(yt_tracks):
+            if i in yt_used:
                 continue
-            if s_title in yt_title or yt_title in s_title:
+            yt_title = clean(strip_version(yt_info["title"]))
+            yt_artist = clean(yt_info["artists"])
+            title_match = s_title in yt_title or yt_title in s_title
+            artist_match = s_artist in yt_artist or yt_artist in s_artist
+            if title_match and artist_match:
                 matched_ids.append(yt_info["videoId"])
-                yt_used.add(yt_title)
+                yt_used.add(i)
                 found = True
                 break
         if not found:
             unmatched_spotify.append(st)
 
-    unmatched_yt = [t for t in yt_tracks if clean(strip_version(t["title"])) not in yt_used]
+    unmatched_yt = [t for i, t in enumerate(yt_tracks) if i not in yt_used]
 
     return unmatched_spotify, matched_ids, unmatched_yt
 
