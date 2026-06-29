@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+auth.json
+cookies.json
+cookies.txt
+headers.txt
+sp_dc.txt
+*.csv
+.env
+output/
