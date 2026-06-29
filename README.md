@@ -87,12 +87,25 @@ Interactive mode (no args):
 python sync_ytmusic.py
 ```
 
-Shows registered playlists and lets you pick which to sync. "Sync all" option available.
+Shows registered playlists and lets you pick which to sync. Arrow keys to navigate, Enter to select.
+
+Options in the menu:
+- **Sync** -- Add missing tracks, remove extras
+- **Delete** -- Remove playlist from registry
+- **Preserve extras** -- Toggle to keep extra YouTube tracks instead of removing them
+- **Sync all** -- Sync every registered playlist
+- **Delete all** -- Remove all playlists from registry (with confirmation)
 
 Direct mode:
 
 ```bash
 python sync_ytmusic.py <spotify_playlist_id> <ytmusic_playlist_id>
+```
+
+With `--preserve` flag to keep extra YouTube tracks:
+
+```bash
+python sync_ytmusic.py --preserve <spotify_playlist_id> <ytmusic_playlist_id>
 ```
 
 List registered playlists:
