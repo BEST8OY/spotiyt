@@ -129,6 +129,8 @@ def sync(spotify_id, ytmusic_id, sp_dc):
 
 
 def interactive_menu(sp_dc):
+    import curses
+
     data = load_registry()
 
     if not data:
@@ -136,43 +138,47 @@ def interactive_menu(sp_dc):
         print("Run spotify2ytmusic.py first to create and register playlists.")
         sys.exit(0)
 
-    print("\nRegistered playlists:\n")
     entries = list(data.items())
-    for i, (sid, info) in enumerate(entries, 1):
-        print(f"  {i}. {info['name']}")
-        print(f"     Spotify: {sid}")
-        print(f"     YouTube: {info['ytmusic_id']}")
+    options = [info["name"] for _, info in entries] + ["Sync all", "Exit"]
 
-    print(f"\n  {len(entries) + 1}. Sync all")
-    print(f"  0. Exit\n")
+    def menu(stdscr):
+        curses.curs_set(0)
+        current = 0
 
-    while True:
-        choice = input("Select playlist to sync: ").strip()
+        while True:
+            stdscr.clear()
+            stdscr.addstr(0, 0, "Select playlist to sync:\n")
+            for i, opt in enumerate(options):
+                prefix = "> " if i == current else "  "
+                stdscr.addstr(i + 2, 0, f"{prefix}{opt}")
+            stdscr.refresh()
 
-        if choice == "0":
-            print("Bye!")
-            sys.exit(0)
+            key = stdscr.getch()
+            if key == curses.KEY_UP and current > 0:
+                current -= 1
+            elif key == curses.KEY_DOWN and current < len(options) - 1:
+                current += 1
+            elif key in (10, 13):
+                return current
 
-        if choice == str(len(entries) + 1):
-            print("\nSyncing all playlists...")
-            for sid, info in entries:
-                print(f"\n{'='*50}")
-                sync(sid, info["ytmusic_id"], sp_dc)
-            print("\nAll done!")
-            sys.exit(0)
+    choice = curses.wrapper(menu)
 
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(entries):
-                sid, info = entries[idx]
-                print(f"\nSyncing: {info['name']}")
-                sync(sid, info["ytmusic_id"], sp_dc)
-                print("\nDone!")
-                sys.exit(0)
-            else:
-                print("Invalid choice, try again.")
-        except ValueError:
-            print("Enter a number, try again.")
+    if choice == len(options) - 1:
+        print("Bye!")
+        sys.exit(0)
+
+    if choice == len(options) - 2:
+        print("\nSyncing all playlists...")
+        for sid, info in entries:
+            print(f"\n{'='*50}")
+            sync(sid, info["ytmusic_id"], sp_dc)
+        print("\nAll done!")
+        sys.exit(0)
+
+    sid, info = entries[choice]
+    print(f"\nSyncing: {info['name']}")
+    sync(sid, info["ytmusic_id"], sp_dc)
+    print("\nDone!")
 
 
 def main():
