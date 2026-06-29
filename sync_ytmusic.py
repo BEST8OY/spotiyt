@@ -102,7 +102,9 @@ def sync(spotify_id, ytmusic_id, sp_dc):
     print(f"To remove: {len(to_remove)}")
 
     if to_remove:
-        print("\nRemoving tracks not in Spotify playlist...")
+        print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
+        for t in to_remove:
+            print(f"  - {t['title']} - {t['artists']}")
         yt_set_map = {t["videoId"]: t.get("setVideoId") for t in yt_tracks if t.get("setVideoId")}
         remove_videos = []
         for t in to_remove:
