@@ -148,49 +148,51 @@ def interactive_menu(sp_dc, preserve=False):
     preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
     main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
     separator = len(playlist_names)
+    sync_all_idx = separator
+    delete_all_idx = separator + 1
+    exit_idx = separator + 2
 
-    def menu(stdscr, options, prompt, sep_at=None):
+    def menu(stdscr, options, prompt, sep_before=None):
         curses.curs_set(0)
         current = 0
-        selectable = [i for i, _ in enumerate(options) if sep_at is None or i != sep_at]
 
         while True:
             stdscr.clear()
             stdscr.addstr(0, 0, prompt + "\n")
             row = 2
             for i, opt in enumerate(options):
-                if sep_at is not None and i == sep_at:
+                if sep_before is not None and i == sep_before:
                     stdscr.addstr(row, 0, "  ─────────────────")
                     row += 1
-                prefix = "> " if i == selectable[current] else "  "
+                prefix = "> " if i == current else "  "
                 stdscr.addstr(row, 0, f"{prefix}{opt}")
                 row += 1
             stdscr.refresh()
 
             key = stdscr.getch()
             if key == curses.KEY_UP:
-                current = (current - 1) % len(selectable)
+                current = (current - 1) % len(options)
             elif key == curses.KEY_DOWN:
-                current = (current + 1) % len(selectable)
+                current = (current + 1) % len(options)
             elif key in (10, 13):
-                return selectable[current]
+                return current
             elif key == ord('q'):
                 return -1
 
     while True:
-        choice = curses.wrapper(menu, main_options, "Select playlist:", sep_at=separator)
+        choice = curses.wrapper(menu, main_options, "Select playlist:", sep_before=separator)
 
-        if choice == -1 or choice == len(main_options) - 1:
+        if choice == -1 or choice == exit_idx:
             print("Bye!")
             sys.exit(0)
 
-        if choice == len(main_options) - 4:
+        if choice == separator:
             preserve = not preserve
             preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
             main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
             continue
 
-        if choice == len(main_options) - 3:
+        if choice == sync_all_idx:
             print("\nSyncing all playlists...")
             for sid, info in entries:
                 print(f"\n{'='*50}")
@@ -198,7 +200,7 @@ def interactive_menu(sp_dc, preserve=False):
             print("\nAll done!")
             sys.exit(0)
 
-        if choice == len(main_options) - 2:
+        if choice == delete_all_idx:
             confirm = curses.wrapper(menu, ["Yes, delete all", "No, go back"], "Delete ALL playlists?")
             if confirm == 0:
                 save_registry({})
