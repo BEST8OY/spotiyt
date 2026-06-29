@@ -13,6 +13,7 @@ from ytmusic_utils import (
     AUTH_JSON, add_in_batches, deduplicate, load_tracks,
     save_dropped, save_not_found, search_tracks, verify_playlist,
 )
+from sync_ytmusic import register_playlist
 
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
 PLAYLIST_HASH = "bb67e0af06e8d6f52b531f97468ee4acd44cd0f82b988e15c2ea47b1148efc77"
@@ -146,6 +147,7 @@ def import_ytmusic(csv_file: str, playlist_name: str):
         save_dropped(csv_file, tracks, [v[0] for v in found_videos], missing)
 
     print(f"URL: https://music.youtube.com/playlist?list={playlist_id}")
+    return playlist_id
 
 
 def sanitize_filename(name: str) -> str:
@@ -172,7 +174,8 @@ def main():
         name, items = fetch_playlist(token, playlist_id)
         output = f"{sanitize_filename(name)}.csv"
         save_csv(name, items, output)
-        import_ytmusic(output, f"{name} (Spotify)")
+        yt_id = import_ytmusic(output, f"{name} (Spotify)")
+        register_playlist(playlist_id, yt_id, name)
 
 
 if __name__ == "__main__":

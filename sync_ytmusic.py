@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import sys
 from pathlib import Path
 
@@ -8,6 +9,28 @@ from ytmusic_utils import (
     AUTH_JSON, add_in_batches, deduplicate, search_tracks,
 )
 from spotify2ytmusic import get_token, fetch_playlist
+
+REGISTRY = "playlists.json"
+
+
+def load_registry():
+    path = Path(REGISTRY)
+    if path.exists():
+        return json.loads(path.read_text())
+    return {}
+
+
+def save_registry(data):
+    Path(REGISTRY).write_text(json.dumps(data, indent=2) + "\n")
+
+
+def register_playlist(spotify_id, ytmusic_id, name):
+    data = load_registry()
+    data[spotify_id] = {
+        "ytmusic_id": ytmusic_id,
+        "name": name,
+    }
+    save_registry(data)
 
 
 def get_yt_playlist(ytm, playlist_id):
@@ -24,20 +47,7 @@ def get_yt_playlist(ytm, playlist_id):
     return playlist.get("title", ""), tracks
 
 
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python sync_ytmusic.py <spotify_playlist_id> <ytmusic_playlist_id>")
-        print("sp_dc token is read from sp_dc.txt")
-        sys.exit(1)
-
-    sp_dc = Path("sp_dc.txt").read_text().strip()
-    if not sp_dc:
-        print("Error: sp_dc.txt is empty")
-        sys.exit(1)
-
-    spotify_id = sys.argv[1]
-    ytmusic_id = sys.argv[2]
-
+def sync(spotify_id, ytmusic_id, sp_dc):
     ytm = YTMusic(AUTH_JSON)
 
     print("Fetching Spotify playlist...")
@@ -75,7 +85,6 @@ def main():
             print(f"  - {t['name']} - {t['artists']}")
 
     found_ids = {v[0] for v in found_videos}
-
     to_add = found_ids - yt_video_ids
     to_remove = yt_video_ids - found_ids
 
@@ -107,6 +116,75 @@ def main():
         print(f"Added: {added}, Failed: {failed}")
 
     print(f"\nURL: https://music.youtube.com/playlist?list={ytmusic_id}")
+
+
+def interactive_menu(sp_dc):
+    data = load_registry()
+
+    if not data:
+        print("No playlists registered yet.")
+        print("Run spotify2ytmusic.py first to create and register playlists.")
+        sys.exit(0)
+
+    print("\nRegistered playlists:\n")
+    entries = list(data.items())
+    for i, (sid, info) in enumerate(entries, 1):
+        print(f"  {i}. {info['name']}")
+        print(f"     Spotify: {sid}")
+        print(f"     YouTube: {info['ytmusic_id']}")
+
+    print(f"\n  {len(entries) + 1}. Sync all")
+    print(f"  0. Exit\n")
+
+    while True:
+        choice = input("Select playlist to sync: ").strip()
+
+        if choice == "0":
+            print("Bye!")
+            sys.exit(0)
+
+        if choice == str(len(entries) + 1):
+            print("\nSyncing all playlists...")
+            for sid, info in entries:
+                print(f"\n{'='*50}")
+                sync(sid, info["ytmusic_id"], sp_dc)
+            print("\nAll done!")
+            sys.exit(0)
+
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(entries):
+                sid, info = entries[idx]
+                print(f"\nSyncing: {info['name']}")
+                sync(sid, info["ytmusic_id"], sp_dc)
+                print("\nDone!")
+                sys.exit(0)
+            else:
+                print("Invalid choice, try again.")
+        except ValueError:
+            print("Enter a number, try again.")
+
+
+def main():
+    if len(sys.argv) == 3:
+        sync(sys.argv[1], sys.argv[2], Path("sp_dc.txt").read_text().strip())
+        return
+
+    if len(sys.argv) == 2 and sys.argv[1] == "--list":
+        data = load_registry()
+        if not data:
+            print("No playlists registered.")
+        else:
+            for sid, info in data.items():
+                print(f"{info['name']}: {sid} -> {info['ytmusic_id']}")
+        return
+
+    sp_dc = Path("sp_dc.txt").read_text().strip()
+    if not sp_dc:
+        print("Error: sp_dc.txt is empty")
+        sys.exit(1)
+
+    interactive_menu(sp_dc)
 
 
 if __name__ == "__main__":

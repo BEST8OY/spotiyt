@@ -79,16 +79,24 @@ CSV must have columns: `track_name`, `artists`. Optional: `album_name` (improves
 
 ### Sync existing YouTube Music playlist with Spotify
 
+Interactive mode (no args):
+
+```bash
+python sync_ytmusic.py
+```
+
+Shows registered playlists and lets you pick which to sync. "Sync all" option available.
+
+Direct mode:
+
 ```bash
 python sync_ytmusic.py <spotify_playlist_id> <ytmusic_playlist_id>
 ```
 
-Adds missing tracks and removes tracks not in the Spotify playlist.
-
-Example:
+List registered playlists:
 
 ```bash
-python sync_ytmusic.py "37i9dQZF1E8MCNiiTgwMk8" "PLxxxxxxxx"
+python sync_ytmusic.py --list
 ```
 
 ### Finding Playlist ID
