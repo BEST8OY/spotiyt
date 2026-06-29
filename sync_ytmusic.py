@@ -142,7 +142,7 @@ def interactive_menu(sp_dc):
 
     entries = list(data.items())
     playlist_names = [info["name"] for _, info in entries]
-    main_options = playlist_names + ["Sync all", "Exit"]
+    main_options = playlist_names + ["Sync all", "Delete all", "Exit"]
 
     def menu(stdscr, options, prompt):
         curses.curs_set(0)
@@ -173,13 +173,21 @@ def interactive_menu(sp_dc):
             print("Bye!")
             sys.exit(0)
 
-        if choice == len(main_options) - 2:
+        if choice == len(main_options) - 3:
             print("\nSyncing all playlists...")
             for sid, info in entries:
                 print(f"\n{'='*50}")
                 sync(sid, info["ytmusic_id"], sp_dc)
             print("\nAll done!")
             sys.exit(0)
+
+        if choice == len(main_options) - 2:
+            confirm = curses.wrapper(menu, ["Yes, delete all", "No, go back"], "Delete ALL playlists?")
+            if confirm == 0:
+                save_registry({})
+                print(f"Removed all {len(entries)} playlist(s).")
+                sys.exit(0)
+            continue
 
         sid, info = entries[choice]
         action = curses.wrapper(menu, ["Sync", "Delete", "Back"], f"{info['name']}:")
