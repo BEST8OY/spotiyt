@@ -10,3 +10,4 @@ sp_dc.txt
 *.csv
 .env
 output/
+playlists.json
