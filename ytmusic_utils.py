@@ -62,7 +62,11 @@ def word_ratio(s1, s2):
         return 1.0
     if not w1 or not w2:
         return 0.0
-    return SequenceMatcher(None, w1, w2).ratio()
+    seq_score = SequenceMatcher(None, w1, w2).ratio()
+    s1_set, s2_set = set(w1), set(w2)
+    intersection = s1_set & s2_set
+    jaccard = len(intersection) / len(s1_set | s2_set) if s1_set | s2_set else 0.0
+    return max(seq_score, jaccard)
 
 
 def _split_artists(s):
@@ -140,12 +144,23 @@ def _search_album_fallback(ytm, track, threshold=0.6):
 
         tracks = album_data.get('tracks', [])
         track_name = clean(strip_version(track['name']))
+        track_artists_set = _split_artists(track_artists)
         best_score = 0.0
         best_match = None
 
         for t in tracks:
             t_title = clean(strip_version(t.get('title', '')))
-            score = word_ratio(track_name, t_title)
+            t_artists_str = ', '.join(a['name'] for a in t.get('artists', []))
+            t_artists_set = _split_artists(t_artists_str)
+            title_score = word_ratio(track_name, t_title)
+            if not t_artists_set or not track_artists_set:
+                artist_score = 1.0
+            else:
+                matched = sum(1 for a in t_artists_set if a in track_artists_set)
+                artist_score = matched / len(t_artists_set) if t_artists_set else 0.0
+            if artist_score < 0.5:
+                continue
+            score = title_score
             if score > best_score:
                 best_score = score
                 best_match = t
@@ -245,26 +260,23 @@ def search_track(ytm, track, threshold=0.6):
 
         if _album_matches(track, best_match) and title_exact:
             artists = ', '.join(a['name'] for a in best_match.get('artists', []))
-            return best_match['videoId'], f"{best_match['title']} - {artists}"
+            return best_match['videoId'], f"{best_match['title']} - {artists} [high]"
 
         vid, info = _search_album_fallback(ytm, track, threshold)
         if vid:
-            return vid, info
+            return vid, f"{info} [medium]"
 
         if _album_matches(track, best_match):
             artists = ', '.join(a['name'] for a in best_match.get('artists', []))
-            return best_match['videoId'], f"{best_match['title']} - {artists}"
-
-        artists = ', '.join(a['name'] for a in best_match.get('artists', []))
-        return best_match['videoId'], f"{best_match['title']} - {artists}"
+            return best_match['videoId'], f"{best_match['title']} - {artists} [medium]"
 
     vid, info = _search_album_fallback(ytm, track, threshold)
     if vid:
-        return vid, info
+        return vid, f"{info} [medium]"
 
     vid, info = _search_artist_fallback(ytm, track, threshold)
     if vid:
-        return vid, info
+        return vid, f"{info} [low]"
 
     return None, []
 
