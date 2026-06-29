@@ -77,6 +77,20 @@ python csv2ytmusic.py Zombie_Radio.csv "Zombie Radio"
 
 CSV must have columns: `track_name`, `artists`. Optional: `album_name` (improves match accuracy).
 
+### Sync existing YouTube Music playlist with Spotify
+
+```bash
+python sync_ytmusic.py <spotify_playlist_id> <ytmusic_playlist_id>
+```
+
+Adds missing tracks and removes tracks not in the Spotify playlist.
+
+Example:
+
+```bash
+python sync_ytmusic.py "37i9dQZF1E8MCNiiTgwMk8" "PLxxxxxxxx"
+```
+
 ### Finding Playlist ID
 
 From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9dQZF1E8MCNiiTgwMk8`.
@@ -87,6 +101,7 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 |------|-------------|
 | `spotify2ytmusic.py` | Full pipeline: Spotify export -> CSV -> YouTube Music import |
 | `csv2ytmusic.py` | Import existing CSV to YouTube Music |
+| `sync_ytmusic.py` | Sync existing YouTube Music playlist with Spotify |
 | `ytmusic_utils.py` | Shared functions (search, dedup, batch add, verification) |
 | `refresh_yt_auth.py` | Refresh YouTube Music auth from cookies |
 
