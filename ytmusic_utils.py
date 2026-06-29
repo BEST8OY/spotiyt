@@ -12,9 +12,16 @@ REGISTRY = "playlists.json"
 
 VERSION_PATTERNS = [
     r'\s*[-–]\s*(\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})?\s*$',
-    r'\s*\((\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})?\)\s*$',
+    r'\s*\((\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})\)\s*$',
     r'\s*\(feat\.\s+.*?\)\s*$',
     r'\s*\(with\s+.*?\)\s*$',
+    r'\s+feat\.?\s+\S+.*$',
+]
+
+YOUTUBE_NOISE = [
+    r'\s*[-–]\s*Official\s+(Video|Audio|Music\s+Video)\s*$',
+    r'\s*\(Official\s+(Video|Audio|Music\s+Video)\)\s*$',
+    r'\s*\((?:Lyrics|Visualizer|Visualiser)\)\s*$',
 ]
 
 ALBUM_STRIP_PATTERNS = [
@@ -37,6 +44,8 @@ def clean(s):
 
 def strip_version(title):
     for p in VERSION_PATTERNS:
+        title = re.sub(p, '', title, flags=re.IGNORECASE)
+    for p in YOUTUBE_NOISE:
         title = re.sub(p, '', title, flags=re.IGNORECASE)
     return title.strip()
 
