@@ -188,6 +188,7 @@ def interactive_menu(sp_dc):
             print("\nDone!")
             sys.exit(0)
         elif action == 1:
+            print(f"Removed: {info['name']}")
             data.pop(sid)
             save_registry(data)
             entries = list(data.items())
