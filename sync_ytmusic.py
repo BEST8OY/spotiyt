@@ -6,7 +6,7 @@ from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
     AUTH_JSON, add_in_batches, clean, load_registry, save_registry,
-    search_track, strip_version,
+    search_track, strip_version, _split_artists,
 )
 from spotify2ytmusic import get_token, fetch_playlist
 
@@ -25,6 +25,15 @@ def get_yt_playlist(ytm, playlist_id):
     return playlist.get("title", ""), tracks
 
 
+def artist_match(spotify_artists, yt_artists):
+    s_names = _split_artists(spotify_artists)
+    y_names = _split_artists(yt_artists)
+    if not s_names or not y_names:
+        return False
+    matched = sum(1 for a in y_names if a in s_names)
+    return matched / len(y_names) >= 0.5
+
+
 def find_unmatched(spotify_tracks, yt_tracks):
     yt_used = set()
     unmatched_spotify = []
@@ -32,15 +41,14 @@ def find_unmatched(spotify_tracks, yt_tracks):
 
     for st in spotify_tracks:
         s_title = clean(strip_version(st["name"]))
-        s_artist = clean(st["artists"])
         found = False
         for i, yt_info in enumerate(yt_tracks):
             if i in yt_used:
                 continue
             yt_title = clean(strip_version(yt_info["title"]))
-            yt_artist = clean(yt_info["artists"])
-            if (s_title in yt_title or yt_title in s_title) and \
-               (s_artist in yt_artist or yt_artist in s_artist):
+            title_ok = s_title in yt_title or yt_title in s_title
+            artist_ok = artist_match(st["artists"], yt_info["artists"])
+            if title_ok and artist_ok:
                 matched_ids.append(yt_info["videoId"])
                 yt_used.add(i)
                 found = True
