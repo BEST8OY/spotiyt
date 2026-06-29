@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import json
 import sys
 from pathlib import Path
 
 from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
-    AUTH_JSON, add_in_batches, load_registry, search_tracks,
+    AUTH_JSON, add_in_batches, clean, load_registry, search_tracks,
+    strip_version,
 )
 from spotify2ytmusic import get_token, fetch_playlist
 
@@ -25,6 +25,20 @@ def get_yt_playlist(ytm, playlist_id):
     return playlist.get("title", ""), tracks
 
 
+def quick_match(spotify_tracks, yt_tracks):
+    if len(spotify_tracks) != len(yt_tracks):
+        return False
+
+    yt_set = {(clean(strip_version(t["title"])), clean(t["artists"])) for t in yt_tracks}
+
+    for st in spotify_tracks:
+        key = (clean(strip_version(st["name"])), clean(st["artists"]))
+        if key not in yt_set:
+            return False
+
+    return True
+
+
 def sync(spotify_id, ytmusic_id, sp_dc):
     ytm = YTMusic(AUTH_JSON)
 
@@ -35,9 +49,6 @@ def sync(spotify_id, ytmusic_id, sp_dc):
 
     yt_name, yt_tracks = get_yt_playlist(ytm, ytmusic_id)
     print(f"YouTube: {yt_name} ({len(yt_tracks)} tracks)")
-
-    yt_video_ids = {t["videoId"] for t in yt_tracks}
-    yt_set_map = {t["videoId"]: t["setVideoId"] for t in yt_tracks if t.get("setVideoId")}
 
     spotify_tracks = []
     for item in items:
@@ -54,6 +65,10 @@ def sync(spotify_id, ytmusic_id, sp_dc):
             "album": album.get("name", ""),
         })
 
+    if quick_match(spotify_tracks, yt_tracks):
+        print("\nPlaylists are already in sync!")
+        return
+
     print(f"\nSearching {len(spotify_tracks)} Spotify tracks on YouTube Music...")
     found_videos, not_found = search_tracks(ytm, spotify_tracks)
 
@@ -62,7 +77,10 @@ def sync(spotify_id, ytmusic_id, sp_dc):
         for t in not_found:
             print(f"  - {t['name']} - {t['artists']}")
 
+    yt_video_ids = {t["videoId"] for t in yt_tracks}
+    yt_set_map = {t["videoId"]: t["setVideoId"] for t in yt_tracks if t.get("setVideoId")}
     found_ids = {v[0] for v in found_videos}
+
     to_add = found_ids - yt_video_ids
     to_remove = yt_video_ids - found_ids
 
