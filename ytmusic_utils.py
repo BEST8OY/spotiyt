@@ -2,13 +2,17 @@
 import csv
 import json
 import re
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from ytmusicapi import YTMusic
+
 AUTH_JSON = "auth.json"
 REGISTRY = "playlists.json"
+SP_DC_FILE = "sp_dc.txt"
 
 VERSION_PATTERNS = [
     r'\s*[-–]\s*(\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})?\s*$',
@@ -96,13 +100,13 @@ def _artist_ratio(track_artists, result_artists):
 
 def match_score(track, result):
     title_score = word_ratio(
-        clean(strip_version(track['name'])),
-        clean(strip_version(result.get('title', '')))
+        normalize_title(track['name']),
+        normalize_title(result.get('title', ''))
     )
 
     artist_score = _artist_ratio(
         track['artists'],
-        ', '.join(a['name'] for a in result.get('artists', []))
+        join_artist_names(result.get('artists', []))
     )
 
     if artist_score < 0.5:
@@ -152,30 +156,23 @@ def _search_album_fallback(ytm, track, threshold=0.6):
             continue
 
         tracks = album_data.get('tracks', [])
-        track_name = clean(strip_version(track['name']))
-        track_artists_set = _split_artists(track_artists)
+        track_name = normalize_title(track['name'])
         best_score = 0.0
         best_match = None
 
         for t in tracks:
-            t_title = clean(strip_version(t.get('title', '')))
-            t_artists_str = ', '.join(a['name'] for a in t.get('artists', []))
-            t_artists_set = _split_artists(t_artists_str)
+            t_title = normalize_title(t.get('title', ''))
+            t_artists_str = join_artist_names(t.get('artists', []))
             title_score = word_ratio(track_name, t_title)
-            if not t_artists_set or not track_artists_set:
-                artist_score = 1.0
-            else:
-                matched = sum(1 for a in t_artists_set if a in track_artists_set)
-                artist_score = matched / len(t_artists_set) if t_artists_set else 0.0
+            artist_score = _artist_ratio(track_artists, t_artists_str)
             if artist_score < 0.5:
                 continue
-            score = title_score
-            if score > best_score:
-                best_score = score
+            if title_score > best_score:
+                best_score = title_score
                 best_match = t
 
         if best_match and best_score >= 0.5:
-            artists = ', '.join(a['name'] for a in best_match.get('artists', []))
+            artists = join_artist_names(best_match.get('artists', []))
             return best_match['videoId'], f"{best_match['title']} - {artists}"
 
     return None, []
@@ -196,7 +193,7 @@ def _search_artist_fallback(ytm, track, threshold=0.6):
     if not artist_names:
         return None, []
 
-    track_name = clean(strip_version(track['name']))
+    track_name = normalize_title(track['name'])
 
     for name in list(artist_names)[:2]:
         try:
@@ -239,10 +236,10 @@ def _search_artist_fallback(ytm, track, threshold=0.6):
                     continue
 
                 for t in album_data.get('tracks', []):
-                    t_title = clean(strip_version(t.get('title', '')))
+                    t_title = normalize_title(t.get('title', ''))
                     score = word_ratio(track_name, t_title)
                     if score >= 0.5:
-                        artists = ', '.join(a['name'] for a in t.get('artists', []))
+                        artists = join_artist_names(t.get('artists', []))
                         return t['videoId'], f"{t['title']} - {artists}"
 
     return None, []
@@ -263,12 +260,12 @@ def search_track(ytm, track, threshold=0.6):
 
     if best_match and best_score >= threshold:
         title_exact = word_ratio(
-            clean(strip_version(track['name'])),
-            clean(strip_version(best_match.get('title', '')))
+            normalize_title(track['name']),
+            normalize_title(best_match.get('title', ''))
         ) >= 0.9
 
         if _album_matches(track, best_match) and title_exact:
-            artists = ', '.join(a['name'] for a in best_match.get('artists', []))
+            artists = join_artist_names(best_match.get('artists', []))
             return best_match['videoId'], f"{best_match['title']} - {artists} [high]"
 
         vid, info = _search_album_fallback(ytm, track, threshold)
@@ -276,7 +273,7 @@ def search_track(ytm, track, threshold=0.6):
             return vid, f"{info} [medium]"
 
         if _album_matches(track, best_match):
-            artists = ', '.join(a['name'] for a in best_match.get('artists', []))
+            artists = join_artist_names(best_match.get('artists', []))
             return best_match['videoId'], f"{best_match['title']} - {artists} [medium]"
 
     vid, info = _search_album_fallback(ytm, track, threshold)
@@ -288,6 +285,88 @@ def search_track(ytm, track, threshold=0.6):
         return vid, f"{info} [low]"
 
     return None, []
+
+
+def normalize_title(name):
+    return clean(strip_version(name))
+
+
+def join_artist_names(artist_list):
+    return ", ".join(a["name"] for a in artist_list)
+
+
+def load_sp_dc():
+    path = Path(SP_DC_FILE)
+    if not path.exists():
+        print(f"Error: {SP_DC_FILE} not found")
+        sys.exit(1)
+    sp_dc = path.read_text().strip()
+    if not sp_dc:
+        print(f"Error: {SP_DC_FILE} is empty")
+        sys.exit(1)
+    return sp_dc
+
+
+def get_ytmusic_client():
+    return YTMusic(AUTH_JSON)
+
+
+def parse_spotify_items(items):
+    tracks = []
+    for item in items:
+        if item.get("isLocal"):
+            continue
+        t = item.get("itemV2", {}).get("data")
+        if not t:
+            continue
+        artists = "; ".join(a["profile"]["name"] for a in t.get("artists", {}).get("items", []))
+        album = t.get("albumOfTrack", {})
+        tracks.append({
+            "name": t["name"],
+            "artists": artists,
+            "album": album.get("name", ""),
+        })
+    return tracks
+
+
+def remove_in_batches(ytm, playlist_id, entries, batch_size=25):
+    removed = 0
+    for i in range(0, len(entries), batch_size):
+        batch = entries[i:i + batch_size]
+        try:
+            ytm.remove_playlist_items(playlist_id, batch)
+            removed += len(batch)
+            print(f"  Removed batch {removed}/{len(entries)}")
+        except Exception as e:
+            print(f"  Failed removing batch: {e}")
+    return removed
+
+
+def import_to_ytmusic(csv_file, playlist_name, description="Imported from CSV"):
+    ytm = get_ytmusic_client()
+
+    tracks = load_tracks(csv_file)
+    print(f"Loaded {len(tracks)} tracks")
+
+    playlist_id = ytm.create_playlist(title=playlist_name, description=description)
+    print(f"Created playlist: {playlist_name}")
+
+    found_videos, not_found = search_tracks(ytm, tracks)
+    print(f"\nFound {len(found_videos)}/{len(tracks)} tracks on YouTube Music")
+
+    save_not_found(csv_file, not_found)
+
+    if found_videos:
+        unique, _ = deduplicate(found_videos)
+        unique_ids = [v[0] for v in unique]
+        added, failed = add_in_batches(ytm, playlist_id, unique_ids)
+        print(f"\nAdded: {added}, Failed: {failed}")
+
+        missing = verify_playlist(ytm, playlist_id, unique_ids)
+        save_dropped(csv_file, tracks, [v[0] for v in found_videos], missing)
+
+    print(f"URL: https://music.youtube.com/playlist?list={playlist_id}")
+    return playlist_id
 
 
 def load_tracks(csv_file):

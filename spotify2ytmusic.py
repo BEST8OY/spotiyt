@@ -7,11 +7,9 @@ from pathlib import Path
 
 import pyotp
 import requests
-from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
-    AUTH_JSON, add_in_batches, deduplicate, load_tracks, register_playlist,
-    save_dropped, save_not_found, search_tracks, verify_playlist,
+    import_to_ytmusic, register_playlist,
 )
 
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
@@ -123,32 +121,6 @@ def save_csv(name: str, items: list, output: str):
     return output
 
 
-def import_ytmusic(csv_file: str, playlist_name: str):
-    ytm = YTMusic(AUTH_JSON)
-
-    tracks = load_tracks(csv_file)
-    print(f"Loaded {len(tracks)} tracks")
-    playlist_id = ytm.create_playlist(title=playlist_name, description="Imported from Spotify")
-    print(f"Created playlist: {playlist_name}")
-
-    found_videos, not_found = search_tracks(ytm, tracks)
-    print(f"\nFound {len(found_videos)}/{len(tracks)} tracks on YouTube Music")
-
-    save_not_found(csv_file, not_found)
-
-    if found_videos:
-        unique, _ = deduplicate(found_videos)
-        unique_ids = [v[0] for v in unique]
-        added, failed = add_in_batches(ytm, playlist_id, unique_ids)
-        print(f"\nAdded: {added}, Failed: {failed}")
-
-        missing = verify_playlist(ytm, playlist_id, unique_ids)
-        save_dropped(csv_file, tracks, [v[0] for v in found_videos], missing)
-
-    print(f"URL: https://music.youtube.com/playlist?list={playlist_id}")
-    return playlist_id
-
-
 def sanitize_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in " _-" else "_" for c in name).strip().replace(" ", "_")
 
@@ -159,10 +131,8 @@ def main():
         print("sp_dc token is read from sp_dc.txt")
         sys.exit(1)
 
-    sp_dc = Path("sp_dc.txt").read_text().strip()
-    if not sp_dc:
-        print("Error: sp_dc.txt is empty")
-        sys.exit(1)
+    from ytmusic_utils import load_sp_dc
+    sp_dc = load_sp_dc()
 
     playlist_ids = sys.argv[1:]
 
@@ -173,7 +143,7 @@ def main():
         name, items = fetch_playlist(token, playlist_id)
         output = f"{sanitize_filename(name)}.csv"
         save_csv(name, items, output)
-        yt_id = import_ytmusic(output, f"{name} (Spotify)")
+        yt_id = import_to_ytmusic(output, f"{name} (Spotify)", "Imported from Spotify")
         register_playlist(playlist_id, yt_id, name)
 
 

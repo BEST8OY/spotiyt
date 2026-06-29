@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import sys
-from pathlib import Path
-
-from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
-    AUTH_JSON, add_in_batches, clean, load_registry, save_registry,
-    search_track, strip_version, word_ratio, _split_artists,
+    add_in_batches, get_ytmusic_client, load_registry, load_sp_dc,
+    normalize_title, parse_spotify_items, remove_in_batches, save_registry,
+    search_track, word_ratio, _artist_ratio, join_artist_names,
 )
 from spotify2ytmusic import get_token, fetch_playlist
 
@@ -20,18 +18,9 @@ def get_yt_playlist(ytm, playlist_id):
                 "videoId": t["videoId"],
                 "setVideoId": t.get("setVideoId"),
                 "title": t.get("title", ""),
-                "artists": ", ".join(a["name"] for a in t.get("artists", [])),
+                "artists": join_artist_names(t.get("artists", [])),
             })
     return playlist.get("title", ""), tracks
-
-
-def artist_match(spotify_artists, yt_artists):
-    s_names = _split_artists(spotify_artists)
-    y_names = _split_artists(yt_artists)
-    if not s_names or not y_names:
-        return False
-    matched = sum(1 for a in y_names if a in s_names)
-    return matched / len(y_names) >= 0.5
 
 
 def find_unmatched(spotify_tracks, yt_tracks):
@@ -40,15 +29,15 @@ def find_unmatched(spotify_tracks, yt_tracks):
     matched_ids = []
 
     for st in spotify_tracks:
-        s_title = clean(strip_version(st["name"]))
+        s_title = normalize_title(st["name"])
         best_i = None
         best_score = 0.0
         for i, yt_info in enumerate(yt_tracks):
             if i in yt_used:
                 continue
-            yt_title = clean(strip_version(yt_info["title"]))
+            yt_title = normalize_title(yt_info["title"])
             title_score = word_ratio(s_title, yt_title)
-            artist_ok = artist_match(st["artists"], yt_info["artists"])
+            artist_ok = _artist_ratio(st["artists"], yt_info["artists"]) >= 0.5
             if title_score >= 0.5 and artist_ok:
                 if title_score > best_score:
                     best_score = title_score
@@ -64,7 +53,7 @@ def find_unmatched(spotify_tracks, yt_tracks):
 
 
 def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
-    ytm = YTMusic(AUTH_JSON)
+    ytm = get_ytmusic_client()
 
     print("Fetching Spotify playlist...")
     token = get_token(sp_dc)
@@ -74,20 +63,7 @@ def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
     yt_name, yt_tracks = get_yt_playlist(ytm, ytmusic_id)
     print(f"YouTube: {yt_name} ({len(yt_tracks)} tracks)")
 
-    spotify_tracks = []
-    for item in items:
-        if item.get("isLocal"):
-            continue
-        t = item.get("itemV2", {}).get("data")
-        if not t:
-            continue
-        artists = "; ".join(a["profile"]["name"] for a in t.get("artists", {}).get("items", []))
-        album = t.get("albumOfTrack", {})
-        spotify_tracks.append({
-            "name": t["name"],
-            "artists": artists,
-            "album": album.get("name", ""),
-        })
+    spotify_tracks = parse_spotify_items(items)
 
     unmatched_spotify, matched_ids, unmatched_yt = find_unmatched(spotify_tracks, yt_tracks)
 
@@ -113,20 +89,13 @@ def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
         print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
         for t in to_remove:
             print(f"  - {t['title']} - {t['artists']}")
-        remove_videos = []
+        remove_entries = []
         for t in to_remove:
             entry = {"videoId": t["videoId"]}
             if t.get("setVideoId"):
                 entry["setVideoId"] = t["setVideoId"]
-            remove_videos.append(entry)
-
-        for i in range(0, len(remove_videos), 25):
-            batch = remove_videos[i:i + 25]
-            try:
-                ytm.remove_playlist_items(ytmusic_id, batch)
-                print(f"  Removed batch {min(i + 25, len(remove_videos))}/{len(remove_videos)}")
-            except Exception as e:
-                print(f"  Failed removing batch: {e}")
+            remove_entries.append(entry)
+        remove_in_batches(ytm, ytmusic_id, remove_entries)
         print(f"Removed {len(to_remove)} track(s)")
 
     if to_add:
@@ -271,7 +240,7 @@ def main():
     args = [a for a in sys.argv[1:] if a != "--preserve"]
 
     if len(args) == 2:
-        sync(args[0], args[1], Path("sp_dc.txt").read_text().strip(), preserve)
+        sync(args[0], args[1], load_sp_dc(), preserve)
         return
 
     if len(args) == 1 and args[0] == "--list":
@@ -283,12 +252,7 @@ def main():
                 print(f"{info['name']}: {sid} -> {info['ytmusic_id']}")
         return
 
-    sp_dc = Path("sp_dc.txt").read_text().strip()
-    if not sp_dc:
-        print("Error: sp_dc.txt is empty")
-        sys.exit(1)
-
-    interactive_menu(sp_dc, preserve)
+    interactive_menu(load_sp_dc(), preserve)
 
 
 if __name__ == "__main__":
