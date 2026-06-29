@@ -55,7 +55,7 @@ def find_unmatched(spotify_tracks, yt_tracks):
     return unmatched_spotify, matched_ids, unmatched_yt
 
 
-def sync(spotify_id, ytmusic_id, sp_dc):
+def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
     ytm = YTMusic(AUTH_JSON)
 
     print("Fetching Spotify playlist...")
@@ -99,28 +99,31 @@ def sync(spotify_id, ytmusic_id, sp_dc):
         print("\nAll tracks matched!")
 
     print(f"\nTo add: {len(to_add)}")
-    print(f"To remove: {len(to_remove)}")
 
     if to_remove:
-        print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
-        for t in to_remove:
-            print(f"  - {t['title']} - {t['artists']}")
-        yt_set_map = {t["videoId"]: t.get("setVideoId") for t in yt_tracks if t.get("setVideoId")}
-        remove_videos = []
-        for t in to_remove:
-            entry = {"videoId": t["videoId"]}
-            if t["videoId"] in yt_set_map:
-                entry["setVideoId"] = yt_set_map[t["videoId"]]
-            remove_videos.append(entry)
+        if preserve:
+            print(f"\nPreserving {len(to_remove)} extra track(s) in YouTube playlist")
+        else:
+            print(f"To remove: {len(to_remove)}")
+            print(f"\nRemoving {len(to_remove)} track(s) not in Spotify playlist:")
+            for t in to_remove:
+                print(f"  - {t['title']} - {t['artists']}")
+            yt_set_map = {t["videoId"]: t.get("setVideoId") for t in yt_tracks if t.get("setVideoId")}
+            remove_videos = []
+            for t in to_remove:
+                entry = {"videoId": t["videoId"]}
+                if t["videoId"] in yt_set_map:
+                    entry["setVideoId"] = yt_set_map[t["videoId"]]
+                remove_videos.append(entry)
 
-        for i in range(0, len(remove_videos), 25):
-            batch = remove_videos[i:i + 25]
-            try:
-                ytm.remove_playlist_items(ytmusic_id, batch)
-                print(f"  Removed batch {min(i + 25, len(remove_videos))}/{len(remove_videos)}")
-            except Exception as e:
-                print(f"  Failed removing batch: {e}")
-        print(f"Removed {len(to_remove)} track(s)")
+            for i in range(0, len(remove_videos), 25):
+                batch = remove_videos[i:i + 25]
+                try:
+                    ytm.remove_playlist_items(ytmusic_id, batch)
+                    print(f"  Removed batch {min(i + 25, len(remove_videos))}/{len(remove_videos)}")
+                except Exception as e:
+                    print(f"  Failed removing batch: {e}")
+            print(f"Removed {len(to_remove)} track(s)")
 
     if to_add:
         print("\nAdding missing tracks...")
@@ -130,7 +133,7 @@ def sync(spotify_id, ytmusic_id, sp_dc):
     print(f"\nURL: https://music.youtube.com/playlist?list={ytmusic_id}")
 
 
-def interactive_menu(sp_dc):
+def interactive_menu(sp_dc, preserve=False):
     import curses
 
     data = load_registry()
@@ -142,7 +145,8 @@ def interactive_menu(sp_dc):
 
     entries = list(data.items())
     playlist_names = [info["name"] for _, info in entries]
-    main_options = playlist_names + ["Sync all", "Delete all", "Exit"]
+    preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
+    main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
     separator = len(playlist_names)
 
     def menu(stdscr, options, prompt, sep_at=None):
@@ -181,11 +185,17 @@ def interactive_menu(sp_dc):
             print("Bye!")
             sys.exit(0)
 
+        if choice == len(main_options) - 4:
+            preserve = not preserve
+            preserve_label = "Preserve extras: ON" if preserve else "Preserve extras: OFF"
+            main_options = playlist_names + [preserve_label, "Sync all", "Delete all", "Exit"]
+            continue
+
         if choice == len(main_options) - 3:
             print("\nSyncing all playlists...")
             for sid, info in entries:
                 print(f"\n{'='*50}")
-                sync(sid, info["ytmusic_id"], sp_dc)
+                sync(sid, info["ytmusic_id"], sp_dc, preserve)
             print("\nAll done!")
             sys.exit(0)
 
@@ -202,7 +212,7 @@ def interactive_menu(sp_dc):
 
         if action == 0:
             print(f"\nSyncing: {info['name']}")
-            sync(sid, info["ytmusic_id"], sp_dc)
+            sync(sid, info["ytmusic_id"], sp_dc, preserve)
             print("\nDone!")
             sys.exit(0)
         elif action == 1:
@@ -218,11 +228,14 @@ def interactive_menu(sp_dc):
 
 
 def main():
-    if len(sys.argv) == 3:
-        sync(sys.argv[1], sys.argv[2], Path("sp_dc.txt").read_text().strip())
+    preserve = "--preserve" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--preserve"]
+
+    if len(args) == 2:
+        sync(args[0], args[1], Path("sp_dc.txt").read_text().strip(), preserve)
         return
 
-    if len(sys.argv) == 2 and sys.argv[1] == "--list":
+    if len(args) == 1 and args[0] == "--list":
         data = load_registry()
         if not data:
             print("No playlists registered.")
@@ -236,7 +249,7 @@ def main():
         print("Error: sp_dc.txt is empty")
         sys.exit(1)
 
-    interactive_menu(sp_dc)
+    interactive_menu(sp_dc, preserve)
 
 
 if __name__ == "__main__":
