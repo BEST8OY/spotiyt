@@ -9,6 +9,8 @@ Export Spotify playlists and import them into YouTube Music.
 - Deduplicate tracks before import
 - Batch add with verification
 - Generates `_not_found.csv` and `_dropped.csv` for missing tracks
+- Interactive sync with arrow-key navigation (add missing, remove extras)
+- Delete playlists from registry via menu
 
 ## Prerequisites
 
@@ -115,6 +117,8 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 
 ## How It Works
 
+### Initial import (`spotify2ytmusic.py`)
+
 1. Authenticates with Spotify via TOTP + `sp_dc` cookie
 2. Fetches playlist via GraphQL (pathfinder API)
 3. Saves full CSV (17 columns)
@@ -123,12 +127,22 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 6. Adds tracks in batches of 25 with `duplicates=True`
 7. Verifies playlist contents after adding
 8. Saves `_not_found.csv` and `_dropped.csv` for any missing tracks
+9. Registers playlist mapping in `playlists.json`
+
+### Sync (`sync_ytmusic.py`)
+
+1. Fetches both Spotify and YouTube Music playlists
+2. Matches tracks by title + artist (substring comparison)
+3. Only searches unmatched tracks on YouTube Music
+4. Adds missing tracks, removes extras
+5. Prints each track being added/removed
 
 ## Output Files
 
 - `<output>.csv` -- Full export with all metadata
 - `<output>_not_found.csv` -- Tracks not found on YouTube Music
 - `<output>_dropped.csv` -- Tracks dropped during playlist add
+- `playlists.json` -- Registry of Spotify -> YouTube Music playlist mappings
 
 During import, duplicate tracks are listed:
 
