@@ -5,8 +5,8 @@ from pathlib import Path
 from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
-    AUTH_JSON, add_in_batches, clean, load_registry, search_track,
-    strip_version,
+    AUTH_JSON, add_in_batches, clean, load_registry, save_registry,
+    search_track, strip_version,
 )
 from spotify2ytmusic import get_token, fetch_playlist
 
@@ -139,15 +139,16 @@ def interactive_menu(sp_dc):
         sys.exit(0)
 
     entries = list(data.items())
-    options = [info["name"] for _, info in entries] + ["Sync all", "Exit"]
+    playlist_names = [info["name"] for _, info in entries]
+    main_options = playlist_names + ["Sync all", "Exit"]
 
-    def menu(stdscr):
+    def menu(stdscr, options, prompt):
         curses.curs_set(0)
         current = 0
 
         while True:
             stdscr.clear()
-            stdscr.addstr(0, 0, "Select playlist to sync:\n")
+            stdscr.addstr(0, 0, prompt + "\n")
             for i, opt in enumerate(options):
                 prefix = "> " if i == current else "  "
                 stdscr.addstr(i + 2, 0, f"{prefix}{opt}")
@@ -160,25 +161,41 @@ def interactive_menu(sp_dc):
                 current += 1
             elif key in (10, 13):
                 return current
+            elif key == ord('q'):
+                return -1
 
-    choice = curses.wrapper(menu)
+    while True:
+        choice = curses.wrapper(menu, main_options, "Select playlist:")
 
-    if choice == len(options) - 1:
-        print("Bye!")
-        sys.exit(0)
+        if choice == -1 or choice == len(main_options) - 1:
+            print("Bye!")
+            sys.exit(0)
 
-    if choice == len(options) - 2:
-        print("\nSyncing all playlists...")
-        for sid, info in entries:
-            print(f"\n{'='*50}")
+        if choice == len(main_options) - 2:
+            print("\nSyncing all playlists...")
+            for sid, info in entries:
+                print(f"\n{'='*50}")
+                sync(sid, info["ytmusic_id"], sp_dc)
+            print("\nAll done!")
+            sys.exit(0)
+
+        sid, info = entries[choice]
+        action = curses.wrapper(menu, ["Sync", "Delete", "Back"], f"{info['name']}:")
+
+        if action == 0:
+            print(f"\nSyncing: {info['name']}")
             sync(sid, info["ytmusic_id"], sp_dc)
-        print("\nAll done!")
-        sys.exit(0)
-
-    sid, info = entries[choice]
-    print(f"\nSyncing: {info['name']}")
-    sync(sid, info["ytmusic_id"], sp_dc)
-    print("\nDone!")
+            print("\nDone!")
+            sys.exit(0)
+        elif action == 1:
+            data.pop(sid)
+            save_registry(data)
+            entries = list(data.items())
+            playlist_names = [info["name"] for _, info in entries]
+            main_options = playlist_names + ["Sync all", "Exit"]
+            if not entries:
+                print("All playlists removed.")
+                sys.exit(0)
 
 
 def main():
