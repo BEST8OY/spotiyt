@@ -6,31 +6,9 @@ from pathlib import Path
 from ytmusicapi import YTMusic
 
 from ytmusic_utils import (
-    AUTH_JSON, add_in_batches, deduplicate, search_tracks,
+    AUTH_JSON, add_in_batches, load_registry, search_tracks,
 )
 from spotify2ytmusic import get_token, fetch_playlist
-
-REGISTRY = "playlists.json"
-
-
-def load_registry():
-    path = Path(REGISTRY)
-    if path.exists():
-        return json.loads(path.read_text())
-    return {}
-
-
-def save_registry(data):
-    Path(REGISTRY).write_text(json.dumps(data, indent=2) + "\n")
-
-
-def register_playlist(spotify_id, ytmusic_id, name):
-    data = load_registry()
-    data[spotify_id] = {
-        "ytmusic_id": ytmusic_id,
-        "name": name,
-    }
-    save_registry(data)
 
 
 def get_yt_playlist(ytm, playlist_id):

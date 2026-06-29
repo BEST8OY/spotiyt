@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import csv
+import json
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
+from pathlib import Path
 
 AUTH_JSON = "auth.json"
+REGISTRY = "playlists.json"
 
 VERSION_PATTERNS = [
     r'\s*[-–]\s*(\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})?\s*$',
@@ -371,3 +374,23 @@ def save_dropped(csv_file, tracks, video_ids, missing_ids):
             for i, vid in enumerate(video_ids):
                 if vid in missing_ids:
                     writer.writerow([tracks[i]["name"], tracks[i]["artists"], vid])
+
+
+def load_registry():
+    path = Path(REGISTRY)
+    if path.exists():
+        return json.loads(path.read_text())
+    return {}
+
+
+def save_registry(data):
+    Path(REGISTRY).write_text(json.dumps(data, indent=2) + "\n")
+
+
+def register_playlist(spotify_id, ytmusic_id, name):
+    data = load_registry()
+    data[spotify_id] = {
+        "ytmusic_id": ytmusic_id,
+        "name": name,
+    }
+    save_registry(data)
