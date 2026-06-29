@@ -162,17 +162,16 @@ def interactive_menu(sp_dc, preserve=False):
                 if sep_at is not None and i == sep_at:
                     stdscr.addstr(row, 0, "  ─────────────────")
                     row += 1
-                    continue
                 prefix = "> " if i == selectable[current] else "  "
                 stdscr.addstr(row, 0, f"{prefix}{opt}")
                 row += 1
             stdscr.refresh()
 
             key = stdscr.getch()
-            if key == curses.KEY_UP and current > 0:
-                current -= 1
-            elif key == curses.KEY_DOWN and current < len(selectable) - 1:
-                current += 1
+            if key == curses.KEY_UP:
+                current = (current - 1) % len(selectable)
+            elif key == curses.KEY_DOWN:
+                current = (current + 1) % len(selectable)
             elif key in (10, 13):
                 return selectable[current]
             elif key == ord('q'):
