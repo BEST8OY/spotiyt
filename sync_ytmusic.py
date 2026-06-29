@@ -29,14 +29,18 @@ def quick_match(spotify_tracks, yt_tracks):
     if len(spotify_tracks) != len(yt_tracks):
         return False
 
-    yt_set = {(clean(strip_version(t["title"])), clean(t["artists"])) for t in yt_tracks}
+    yt_titles = [clean(strip_version(t["title"])) for t in yt_tracks]
 
+    matched = 0
     for st in spotify_tracks:
-        key = (clean(strip_version(st["name"])), clean(st["artists"]))
-        if key not in yt_set:
-            return False
+        s_title = clean(strip_version(st["name"]))
+        for yt_title in yt_titles:
+            if s_title in yt_title or yt_title in s_title:
+                matched += 1
+                break
 
-    return True
+    ratio = matched / len(spotify_tracks) if spotify_tracks else 0
+    return ratio >= 0.9
 
 
 def sync(spotify_id, ytmusic_id, sp_dc):
@@ -66,7 +70,7 @@ def sync(spotify_id, ytmusic_id, sp_dc):
         })
 
     if quick_match(spotify_tracks, yt_tracks):
-        print("\nPlaylists are already in sync!")
+        print("\nPlaylists already in sync!")
         return
 
     print(f"\nSearching {len(spotify_tracks)} Spotify tracks on YouTube Music...")
