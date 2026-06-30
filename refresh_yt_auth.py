@@ -4,7 +4,7 @@ import time
 import sys
 from ytmusicapi.setup import setup_browser
 
-def refresh_from_cookies_json(path="cookies.json"):
+def refresh_from_cookies_json(path="ytm-cookies.json"):
     with open(path) as f:
         cookies = json.load(f)
 
@@ -34,5 +34,5 @@ def refresh_from_cookies_json(path="cookies.json"):
     print("auth.json refreshed successfully")
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "cookies.json"
+    path = sys.argv[1] if len(sys.argv) > 1 else "ytm-cookies.json"
     refresh_from_cookies_json(path)

@@ -3,10 +3,10 @@ __pycache__/
 *.pyo
 .venv/
 auth.json
-cookies.json
+spotify_cookies.json
+ytm-cookies.json
 cookies.txt
 headers.txt
-sp_dc.txt
 *.csv
 .env
 output/

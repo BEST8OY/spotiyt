@@ -15,13 +15,23 @@ from ytmusic_utils import (
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
 PLAYLIST_HASH = "bb67e0af06e8d6f52b531f97468ee4acd44cd0f82b988e15c2ea47b1148efc77"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+COOKIES_FILE = "spotify_cookies.json"
 
 
 def datetime_from_unix(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc)
 
 
-def get_token(sp_dc: str) -> str:
+def load_cookies() -> dict:
+    path = Path(COOKIES_FILE)
+    if not path.exists():
+        print(f"Error: {COOKIES_FILE} not found")
+        sys.exit(1)
+    raw = json.loads(path.read_text())
+    return {c["name"]: c["value"] for c in raw}
+
+
+def get_token() -> tuple:
     res = requests.get("https://api.github.com/gists/22ed9c6ba463899e933427f7de1f0eef")
     nuances = json.loads(res.json()["files"]["nuances.json"]["content"])
     nuances.sort(key=lambda x: x["v"], reverse=True)
@@ -31,16 +41,20 @@ def get_token(sp_dc: str) -> str:
     totp = pyotp.TOTP(nuance["s"])
     code = totp.at(datetime_from_unix(server_time))
 
+    cookies = load_cookies()
+    cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
     token_url = f"https://open.spotify.com/api/token?reason=transport&productType=web-player&totp={code}&totpServer={code}&totpVer={nuance['v']}"
-    res = requests.get(token_url, headers={"Cookie": f"sp_dc={sp_dc}", "User-Agent": UA})
+    res = requests.get(token_url, headers={"Cookie": cookie_str, "User-Agent": UA})
     data = res.json()
     if "accessToken" not in data:
         raise Exception(f"Token failed: {data}")
-    print(f"Got token ({len(data['accessToken'])} chars)")
-    return data["accessToken"]
+    resp_cookies = {c.name: c.value for c in res.cookies}
+    all_cookies = {**cookies, **resp_cookies}
+    print(f"Got token ({len(data['accessToken'])} chars), cookies: {list(all_cookies.keys())}")
+    return data["accessToken"], all_cookies
 
 
-def fetch_playlist(token: str, playlist_id: str) -> list:
+def fetch_playlist(token: str, playlist_id: str, cookies: dict = None) -> list:
     all_items = []
     offset = 0
     total = 0
@@ -48,11 +62,15 @@ def fetch_playlist(token: str, playlist_id: str) -> list:
 
     while True:
         for attempt in range(5):
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}
+            if cookies:
+                cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                headers["Cookie"] = cookie_str
             res = requests.post(GQL_URL, json={
                 "variables": {"uri": f"spotify:playlist:{playlist_id}", "offset": offset, "limit": 100, "enableWatchFeedEntrypoint": False},
                 "operationName": "fetchPlaylist",
                 "extensions": {"persistedQuery": {"version": 1, "sha256Hash": PLAYLIST_HASH}},
-            }, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA})
+            }, headers=headers)
 
             if res.status_code in (429, 403):
                 print(f"Rate limited ({res.status_code}), waiting 30s...")
@@ -125,26 +143,104 @@ def sanitize_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in " _-" else "_" for c in name).strip().replace(" ", "_")
 
 
+class Menu:
+    def __init__(self, items, prompt):
+        self.items = items
+        self.prompt = prompt
+
+    def run(self):
+        import curses
+        return curses.wrapper(self._render)
+
+    def _render(self, stdscr):
+        import curses
+        curses.curs_set(0)
+        current = 0
+
+        while True:
+            stdscr.clear()
+            stdscr.addstr(0, 0, self.prompt + "\n")
+            row = 2
+            for i, item in enumerate(self.items):
+                if item.get("separator"):
+                    stdscr.addstr(row, 0, "  ─────────────────")
+                    row += 1
+                    continue
+                prefix = "> " if i == current else "  "
+                stdscr.addstr(row, 0, f"{prefix}{item['label']}")
+                row += 1
+            stdscr.refresh()
+
+            key = stdscr.getch()
+            selectable = [i for i, it in enumerate(self.items) if not it.get("separator")]
+            cur_pos = selectable.index(current)
+
+            if key == curses.KEY_UP:
+                current = selectable[(cur_pos - 1) % len(selectable)]
+            elif key == curses.KEY_DOWN:
+                current = selectable[(cur_pos + 1) % len(selectable)]
+            elif key in (10, 13):
+                return current
+            elif key == ord('q'):
+                return -1
+
+
+def get_playlist_ids_interactive():
+    input_str = input("Enter playlist ID(s), one per line (empty line to finish):\n")
+    ids = []
+    while input_str.strip():
+        ids.append(input_str.strip())
+        input_str = input()
+    return ids
+
+
+def process_playlist(playlist_id, token, cookies, personalized):
+    print(f"\n{'='*50}")
+    name, items = fetch_playlist(token, playlist_id, cookies if personalized else None)
+    output = f"{sanitize_filename(name)}.csv"
+    save_csv(name, items, output)
+    yt_id = import_to_ytmusic(output, f"{name} (Spotify)", "Imported from Spotify")
+    register_playlist(playlist_id, yt_id, name)
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python spotify2ytmusic.py <playlist_id> [playlist_id2] ...")
-        print("sp_dc token is read from sp_dc.txt")
-        sys.exit(1)
+    personalized = "--personalized" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--personalized"]
 
-    from ytmusic_utils import load_sp_dc
-    sp_dc = load_sp_dc()
+    if len(args) >= 1:
+        for playlist_id in args:
+            token, cookies = get_token()
+            process_playlist(playlist_id, token, cookies, personalized)
+        return
 
-    playlist_ids = sys.argv[1:]
+    items = [
+        {"label": "Enter playlist ID(s) manually"},
+        {"separator": True},
+        {"label": f"Personalized: {'ON' if personalized else 'OFF'}", "action": "personalized"},
+        {"label": "Exit", "action": "exit"},
+    ]
 
-    token = get_token(sp_dc)
+    while True:
+        menu = Menu(items, "Spotify to YouTube Music:")
+        choice = menu.run()
 
-    for playlist_id in playlist_ids:
-        print(f"\n{'='*50}")
-        name, items = fetch_playlist(token, playlist_id)
-        output = f"{sanitize_filename(name)}.csv"
-        save_csv(name, items, output)
-        yt_id = import_to_ytmusic(output, f"{name} (Spotify)", "Imported from Spotify")
-        register_playlist(playlist_id, yt_id, name)
+        if choice == -1 or items[choice].get("action") == "exit":
+            print("Bye!")
+            sys.exit(0)
+
+        if items[choice].get("action") == "personalized":
+            personalized = not personalized
+            items[1]["label"] = f"Personalized: {'ON' if personalized else 'OFF'}"
+            continue
+
+        playlist_ids = get_playlist_ids_interactive()
+        if not playlist_ids:
+            print("No playlist IDs entered.")
+            continue
+
+        token, cookies = get_token()
+        for pid in playlist_ids:
+            process_playlist(pid, token, cookies, personalized)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,6 @@ from ytmusicapi import YTMusic
 
 AUTH_JSON = "auth.json"
 REGISTRY = "playlists.json"
-SP_DC_FILE = "sp_dc.txt"
 
 VERSION_PATTERNS = [
     r'\s*[-–]\s*(\d{4}\s+)?Remaster(ed)?(\s+Version)?(\s+\d{4})?\s*$',
@@ -293,18 +292,6 @@ def normalize_title(name):
 
 def join_artist_names(artist_list):
     return ", ".join(a["name"] for a in artist_list)
-
-
-def load_sp_dc():
-    path = Path(SP_DC_FILE)
-    if not path.exists():
-        print(f"Error: {SP_DC_FILE} not found")
-        sys.exit(1)
-    sp_dc = path.read_text().strip()
-    if not sp_dc:
-        print(f"Error: {SP_DC_FILE} is empty")
-        sys.exit(1)
-    return sp_dc
 
 
 def get_ytmusic_client():

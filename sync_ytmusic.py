@@ -2,7 +2,7 @@
 import sys
 
 from ytmusic_utils import (
-    add_in_batches, get_ytmusic_client, load_registry, load_sp_dc,
+    add_in_batches, get_ytmusic_client, load_registry,
     normalize_title, parse_spotify_items, remove_in_batches, save_registry,
     search_track, word_ratio, _artist_ratio, join_artist_names,
 )
@@ -52,12 +52,12 @@ def find_unmatched(spotify_tracks, yt_tracks):
     return unmatched_spotify, matched_ids, unmatched_yt
 
 
-def sync(spotify_id, ytmusic_id, sp_dc, preserve=False):
+def sync(spotify_id, ytmusic_id, preserve=False, personalized=False):
     ytm = get_ytmusic_client()
 
     print("Fetching Spotify playlist...")
-    token = get_token(sp_dc)
-    name, items = fetch_playlist(token, spotify_id)
+    token, cookies = get_token()
+    name, items = fetch_playlist(token, spotify_id, cookies if personalized else None)
     print(f"Spotify: {name} ({len(items)} tracks)")
 
     yt_name, yt_tracks = get_yt_playlist(ytm, ytmusic_id)
@@ -148,19 +148,20 @@ class Menu:
                 return -1
 
 
-def build_main_menu(entries, preserve):
+def build_main_menu(entries, preserve, personalized):
     items = []
     for sid, info in entries:
         items.append({"label": info["name"], "sid": sid})
     items.append({"separator": True})
     items.append({"label": f"Preserve extras: {'ON' if preserve else 'OFF'}", "action": "preserve"})
+    items.append({"label": f"Personalized: {'ON' if personalized else 'OFF'}", "action": "personalized"})
     items.append({"label": "Sync all", "action": "sync_all"})
     items.append({"label": "Delete all", "action": "delete_all"})
     items.append({"label": "Exit", "action": "exit"})
     return items
 
 
-def interactive_menu(sp_dc, preserve=False):
+def interactive_menu(preserve=False, personalized=False):
     data = load_registry()
 
     if not data:
@@ -169,7 +170,7 @@ def interactive_menu(sp_dc, preserve=False):
         sys.exit(0)
 
     entries = list(data.items())
-    items = build_main_menu(entries, preserve)
+    items = build_main_menu(entries, preserve, personalized)
 
     while True:
         menu = Menu(items, "Select playlist:")
@@ -187,14 +188,19 @@ def interactive_menu(sp_dc, preserve=False):
 
         if item.get("action") == "preserve":
             preserve = not preserve
-            items = build_main_menu(entries, preserve)
+            items = build_main_menu(entries, preserve, personalized)
+            continue
+
+        if item.get("action") == "personalized":
+            personalized = not personalized
+            items = build_main_menu(entries, preserve, personalized)
             continue
 
         if item.get("action") == "sync_all":
             print("\nSyncing all playlists...")
             for sid, info in entries:
                 print(f"\n{'='*50}")
-                sync(sid, info["ytmusic_id"], sp_dc, preserve)
+                sync(sid, info["ytmusic_id"], preserve, personalized)
             print("\nAll done!")
             sys.exit(0)
 
@@ -221,7 +227,7 @@ def interactive_menu(sp_dc, preserve=False):
 
         if action == 0:
             print(f"\nSyncing: {info['name']}")
-            sync(sid, info["ytmusic_id"], sp_dc, preserve)
+            sync(sid, info["ytmusic_id"], preserve, personalized)
             print("\nDone!")
             sys.exit(0)
         elif action == 1:
@@ -232,15 +238,16 @@ def interactive_menu(sp_dc, preserve=False):
             if not entries:
                 print("All playlists removed.")
                 sys.exit(0)
-            items = build_main_menu(entries, preserve)
+            items = build_main_menu(entries, preserve, personalized)
 
 
 def main():
     preserve = "--preserve" in sys.argv
-    args = [a for a in sys.argv[1:] if a != "--preserve"]
+    personalized = "--personalized" in sys.argv
+    args = [a for a in sys.argv[1:] if a not in ("--preserve", "--personalized")]
 
     if len(args) == 2:
-        sync(args[0], args[1], load_sp_dc(), preserve)
+        sync(args[0], args[1], preserve, personalized)
         return
 
     if len(args) == 1 and args[0] == "--list":
@@ -252,7 +259,7 @@ def main():
                 print(f"{info['name']}: {sid} -> {info['ytmusic_id']}")
         return
 
-    interactive_menu(load_sp_dc(), preserve)
+    interactive_menu(preserve, personalized)
 
 
 if __name__ == "__main__":

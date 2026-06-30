@@ -15,8 +15,8 @@ Export Spotify playlists and import them into YouTube Music.
 ## Prerequisites
 
 - Python 3 with `pyotp`, `requests`, `ytmusicapi`
-- Your Spotify `sp_dc` cookie (from browser DevTools), saved to `sp_dc.txt`
-- YouTube Music cookies (exported as JSON)
+- Spotify browser cookies exported as JSON (using "Cookie-Editor" or similar)
+- YouTube Music browser cookies exported as JSON
 
 ## Setup
 
@@ -33,14 +33,21 @@ sudo pacman -S python-pyotp python-requests python-ytmusicapi
 
 ### 2. Spotify auth
 
-Save your `sp_dc` cookie value to a file:
-```bash
-echo -n "AQAg4DWr..." > sp_dc.txt
+Export your Spotify cookies from the browser as JSON (using "Cookie-Editor" or similar) and save as `spotify_cookies.json`:
+
+```json
+[
+  {"domain": ".spotify.com", "name": "sp_dc", "value": "..."},
+  {"domain": ".spotify.com", "name": "sp_key", "value": "..."},
+  {"domain": ".spotify.com", "name": "sp_t", "value": "..."}
+]
 ```
+
+The `sp_dc` cookie is required. Additional cookies (`sp_key`, `sp_t`, etc.) enable personalized playlists (Made for You, Daily Mix, etc.) with the `--personalized` flag.
 
 ### 3. YouTube Music auth (one-time)
 
-Export cookies from https://music.youtube.com in JSON format (e.g., using "EditThisCookie" or "Cookie-Editor" extension) and save as `cookies.json`:
+Export cookies from https://music.youtube.com in JSON format (e.g., using "EditThisCookie" or "Cookie-Editor" extension) and save as `ytm-cookies.json`:
 
 ```bash
 python refresh_yt_auth.py
@@ -62,6 +69,20 @@ Example:
 python spotify2ytmusic.py "37i9dQZF1E8MCNiiTgwMk8"
 python spotify2ytmusic.py "37i9dQZF1E8MCNiiTgwMk8" "37i9dQZF1DX0XUsuxWHRQd"
 ```
+
+For **personalized playlists** (Made for You, Daily Mix, etc.), add `--personalized`:
+
+```bash
+python spotify2ytmusic.py --personalized "37i9dQZF1E8MCNiiTgwMk8"
+```
+
+Interactive mode (no args):
+
+```bash
+python spotify2ytmusic.py
+```
+
+Shows a menu to toggle personalized mode and enter playlist IDs.
 
 Output files are named after each playlist: `Zombie_Radio.csv`, `RapCaviar.csv`, etc.
 
@@ -93,6 +114,7 @@ Options in the menu:
 - **Sync** -- Add missing tracks, remove extras
 - **Delete** -- Remove playlist from registry
 - **Preserve extras** -- Toggle to keep extra YouTube tracks instead of removing them
+- **Personalized** -- Toggle to use full cookies for personalized playlists
 - **Sync all** -- Sync every registered playlist
 - **Delete all** -- Remove all playlists from registry (with confirmation)
 
@@ -106,6 +128,12 @@ With `--preserve` flag to keep extra YouTube tracks:
 
 ```bash
 python sync_ytmusic.py --preserve <spotify_playlist_id> <ytmusic_playlist_id>
+```
+
+With `--personalized` flag for personalized playlists:
+
+```bash
+python sync_ytmusic.py --personalized <spotify_playlist_id> <ytmusic_playlist_id>
 ```
 
 List registered playlists:
@@ -122,7 +150,7 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 
 | File | Description |
 |------|-------------|
-| `spotify2ytmusic.py` | Full pipeline: Spotify export -> CSV -> YouTube Music import |
+| `spotify2ytmusic.py` | Full pipeline: Spotify export -> CSV -> YouTube Music import (interactive + personalized) |
 | `csv2ytmusic.py` | Import existing CSV to YouTube Music |
 | `sync_ytmusic.py` | Sync existing YouTube Music playlist with Spotify |
 | `ytmusic_utils.py` | Shared functions (search, dedup, batch add, verification) |
@@ -132,7 +160,7 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 
 ### Initial import (`spotify2ytmusic.py`)
 
-1. Authenticates with Spotify via TOTP + `sp_dc` cookie
+1. Authenticates with Spotify via TOTP + cookies from `spotify_cookies.json`
 2. Fetches playlist via GraphQL (pathfinder API)
 3. Saves full CSV (17 columns)
 4. Searches each track on YouTube Music (4 parallel threads)
@@ -169,7 +197,7 @@ Removed 3 duplicate(s):
 
 When auth expires:
 
-1. Export fresh cookies from browser -> `cookies.json`
+1. Export fresh cookies from browser -> `ytm-cookies.json`
 2. Run `python refresh_yt_auth.py`
 
 ## Troubleshooting
