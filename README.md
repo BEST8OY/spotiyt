@@ -33,15 +33,13 @@ sudo pacman -S python-pyotp python-requests python-ytmusicapi
 
 ### 2. Spotify auth
 
-Export your `sp_dc` cookie from the browser (using "Cookie-Editor" or DevTools) and save as `spotify_cookies.json`:
+Get your `sp_dc` cookie from browser DevTools (Application → Cookies → open.spotify.com → sp_dc) and save it:
 
-```json
-[
-  {"domain": ".spotify.com", "name": "sp_dc", "value": "..."}
-]
+```bash
+echo -n "AQAg4DWr..." > sp_dc.txt
 ```
 
-The `sp_dc` cookie is required for `--personalized` mode. Without it, anonymous mode still works (no `sp_dc` needed).
+The `sp_dc` cookie is required for `--personalized` mode. Without it, anonymous mode still works.
 
 The `sp_dc` cookie is required. Additional cookies (`sp_key`, `sp_t`, etc.) enable personalized playlists (Made for You, Daily Mix, etc.) with the `--personalized` flag.
 
@@ -160,7 +158,7 @@ From `https://open.spotify.com/playlist/37i9dQZF1E8MCNiiTgwMk8`, the ID is `37i9
 
 ### Initial import (`spotify2ytmusic.py`)
 
-1. Authenticates with Spotify via TOTP + `sp_dc` cookie (or anonymous token if not personalized)
+1. Authenticates with Spotify via TOTP + `sp_dc` cookie from `sp_dc.txt` (or anonymous token if not personalized)
 2. Fetches playlist via GraphQL (pathfinder API)
 3. Saves full CSV (17 columns)
 4. Searches each track on YouTube Music (4 parallel threads)

@@ -15,20 +15,23 @@ from ytmusic_utils import (
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
 PLAYLIST_HASH = "bb67e0af06e8d6f52b531f97468ee4acd44cd0f82b988e15c2ea47b1148efc77"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-COOKIES_FILE = "spotify_cookies.json"
+SP_DC_FILE = "sp_dc.txt"
 
 
 def datetime_from_unix(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc)
 
 
-def load_cookies() -> dict:
-    path = Path(COOKIES_FILE)
+def load_sp_dc() -> str:
+    path = Path(SP_DC_FILE)
     if not path.exists():
-        print(f"Error: {COOKIES_FILE} not found")
+        print(f"Error: {SP_DC_FILE} not found")
         sys.exit(1)
-    raw = json.loads(path.read_text())
-    return {c["name"]: c["value"] for c in raw}
+    sp_dc = path.read_text().strip()
+    if not sp_dc:
+        print(f"Error: {SP_DC_FILE} is empty")
+        sys.exit(1)
+    return sp_dc
 
 
 def get_token(personalized=True) -> str:
@@ -41,10 +44,7 @@ def get_token(personalized=True) -> str:
     totp = pyotp.TOTP(nuance["s"])
     code = totp.at(datetime_from_unix(server_time))
 
-    if personalized:
-        sp_dc = load_cookies().get("sp_dc", "")
-    else:
-        sp_dc = "fake_anonymous_token"
+    sp_dc = load_sp_dc() if personalized else "fake_anonymous_token"
     token_url = f"https://open.spotify.com/api/token?reason=transport&productType=web-player&totp={code}&totpServer={code}&totpVer={nuance['v']}"
     res = requests.get(token_url, headers={"Cookie": f"sp_dc={sp_dc}", "User-Agent": UA})
     data = res.json()
