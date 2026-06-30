@@ -4,7 +4,7 @@ import sys
 from ytmusic_utils import (
     add_in_batches, get_ytmusic_client, load_registry,
     normalize_title, parse_spotify_items, remove_in_batches, save_registry,
-    search_track, word_ratio, _artist_ratio, join_artist_names,
+    search_tracks, word_ratio, _artist_ratio, join_artist_names,
 )
 from spotify2ytmusic import get_token, fetch_playlist
 
@@ -69,14 +69,12 @@ def sync(spotify_id, ytmusic_id, preserve=False, personalized=False):
 
     to_add = []
     if unmatched_spotify:
-        print(f"\n{len(unmatched_spotify)} track(s) need searching...")
-        for st in unmatched_spotify:
-            vid, info = search_track(ytm, st)
-            if vid:
-                to_add.append(vid)
-                print(f"  Found: {info}")
-            else:
-                print(f"  Not found: {st['name']} - {st['artists']}")
+        found_videos, not_found = search_tracks(ytm, unmatched_spotify)
+        to_add = [vid for vid, _, _ in found_videos]
+        if not_found:
+            print(f"\nNot found on YouTube Music:")
+            for t in not_found:
+                print(f"  - {t['name']} - {t['artists']}")
     else:
         print("\nAll tracks matched!")
 
