@@ -31,7 +31,7 @@ def load_cookies() -> dict:
     return {c["name"]: c["value"] for c in raw}
 
 
-def get_token() -> str:
+def get_token(personalized=True) -> str:
     res = requests.get("https://api.github.com/gists/22ed9c6ba463899e933427f7de1f0eef")
     nuances = json.loads(res.json()["files"]["nuances.json"]["content"])
     nuances.sort(key=lambda x: x["v"], reverse=True)
@@ -41,17 +41,21 @@ def get_token() -> str:
     totp = pyotp.TOTP(nuance["s"])
     code = totp.at(datetime_from_unix(server_time))
 
-    sp_dc = load_cookies().get("sp_dc", "")
+    if personalized:
+        sp_dc = load_cookies().get("sp_dc", "")
+    else:
+        sp_dc = "fake_anonymous_token"
     token_url = f"https://open.spotify.com/api/token?reason=transport&productType=web-player&totp={code}&totpServer={code}&totpVer={nuance['v']}"
     res = requests.get(token_url, headers={"Cookie": f"sp_dc={sp_dc}", "User-Agent": UA})
     data = res.json()
     if "accessToken" not in data:
         raise Exception(f"Token failed: {data}")
-    print(f"Got token ({len(data['accessToken'])} chars)")
+    label = "personalized" if personalized else "anonymous"
+    print(f"Got {label} token ({len(data['accessToken'])} chars)")
     return data["accessToken"]
 
 
-def fetch_playlist(token: str, playlist_id: str, cookies: dict = None) -> list:
+def fetch_playlist(token: str, playlist_id: str) -> list:
     all_items = []
     offset = 0
     total = 0
@@ -60,9 +64,6 @@ def fetch_playlist(token: str, playlist_id: str, cookies: dict = None) -> list:
     while True:
         for attempt in range(5):
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}
-            if cookies:
-                cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
-                headers["Cookie"] = cookie_str
             res = requests.post(GQL_URL, json={
                 "variables": {"uri": f"spotify:playlist:{playlist_id}", "offset": offset, "limit": 100, "enableWatchFeedEntrypoint": False},
                 "operationName": "fetchPlaylist",
@@ -191,10 +192,10 @@ def get_playlist_ids_interactive():
     return ids
 
 
-def process_playlist(playlist_id, token, personalized):
+def process_playlist(playlist_id, personalized):
     print(f"\n{'='*50}")
-    cookies = load_cookies() if personalized else None
-    name, items = fetch_playlist(token, playlist_id, cookies)
+    token = get_token(personalized)
+    name, items = fetch_playlist(token, playlist_id)
     output = f"{sanitize_filename(name)}.csv"
     save_csv(name, items, output)
     yt_id = import_to_ytmusic(output, f"{name} (Spotify)", "Imported from Spotify")
@@ -206,9 +207,8 @@ def main():
     args = [a for a in sys.argv[1:] if a != "--personalized"]
 
     if len(args) >= 1:
-        token = get_token()
         for playlist_id in args:
-            process_playlist(playlist_id, token, personalized)
+            process_playlist(playlist_id, personalized)
         return
 
     items = [
@@ -236,9 +236,8 @@ def main():
             print("No playlist IDs entered.")
             continue
 
-        token = get_token()
         for pid in playlist_ids:
-            process_playlist(pid, token, personalized)
+            process_playlist(pid, personalized)
 
 
 if __name__ == "__main__":
