@@ -40,6 +40,12 @@ def clean(s):
     s = s.replace('-', ' ')
     s = s.replace('(', ' ')
     s = s.replace(')', ' ')
+    s = s.replace('+', ' ')
+    s = s.replace('*', '')
+    s = s.replace('&', ' ')
+    s = s.replace("'", '')
+    s = s.replace('.', '')
+    s = re.sub(r'\s*:\s*', ':', s)
     s = re.sub(r'[,]+', ' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s
@@ -51,6 +57,10 @@ def strip_version(title):
     for p in YOUTUBE_NOISE:
         title = re.sub(p, '', title, flags=re.IGNORECASE)
     return title.strip()
+
+
+def strip_parens(title):
+    return re.sub(r'\s*\(.*?\)\s*', ' ', title).strip()
 
 
 def strip_album_edition(album):
@@ -120,22 +130,24 @@ def match_score(track, result):
     if expected_album and result_album:
         album_score = word_ratio(clean(expected_album), clean(result_album))
 
-    album_weight = 0.2 if title_score >= 0.9 else 0.1
-    return title_score * 0.5 + artist_score * 0.3 + album_score * album_weight
+    album_weight = 0.3 if title_score >= 0.9 else 0.2
+    return title_score * 0.4 + artist_score * 0.3 + album_score * album_weight
 
 
 def _search_album_fallback(ytm, track, threshold=0.6):
     album_name = track.get('album', '')
     if not album_name:
-        return None, []
+        return None, None
 
-    query = f"{track['artists']} {album_name}"
+    primary_artist = re.split(r'\s*[;,/]\s+|\s+&\s+|\s+feat\.?\s+|\s+ft\.?\s+', track['artists'].strip())[0]
+    query = f"{primary_artist} {album_name}"
     try:
         album_results = ytm.search(query, filter="albums", limit=5)
     except Exception:
-        return None, []
+        return None, None
 
     track_artists = track['artists']
+    candidates = []
 
     for album in album_results:
         browse_id = album.get('browseId')
@@ -143,9 +155,9 @@ def _search_album_fallback(ytm, track, threshold=0.6):
             continue
 
         album_title = clean(album.get('title', ''))
-        album_artist = album.get('artist', '')
+        album_artist = album.get('artist', '') or ''
         title_match = word_ratio(clean(album_name), album_title)
-        artist_match = _artist_ratio(track_artists, album_artist)
+        artist_match = _artist_ratio(track_artists, album_artist) if album_artist else title_match
         if title_match < threshold and artist_match < threshold:
             continue
 
@@ -156,8 +168,6 @@ def _search_album_fallback(ytm, track, threshold=0.6):
 
         tracks = album_data.get('tracks', [])
         track_name = normalize_title(track['name'])
-        best_score = 0.0
-        best_match = None
 
         for t in tracks:
             t_title = normalize_title(t.get('title', ''))
@@ -166,15 +176,17 @@ def _search_album_fallback(ytm, track, threshold=0.6):
             artist_score = _artist_ratio(track_artists, t_artists_str)
             if artist_score < 0.5:
                 continue
-            if title_score > best_score:
-                best_score = title_score
-                best_match = t
+            if title_score >= 0.5:
+                candidates.append((title_score, artist_score, t))
 
-        if best_match and best_score >= 0.5:
-            artists = join_artist_names(best_match.get('artists', []))
-            return best_match['videoId'], f"{best_match['title']} - {artists}"
+    if not candidates:
+        return None, None
 
-    return None, []
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    best_title, best_artist, best_match = candidates[0]
+    artists = join_artist_names(best_match.get('artists', []))
+    score = {"title": best_title, "artist": best_artist}
+    return best_match['videoId'], f"{best_match['title']} - {artists}", score
 
 
 def _album_matches(track, result):
@@ -193,8 +205,15 @@ def _search_artist_fallback(ytm, track, threshold=0.6):
         return None, []
 
     track_name = normalize_title(track['name'])
+    track_artists = track['artists']
+    candidates = []
+    searched = set()
 
-    for name in list(artist_names)[:2]:
+    for name in artist_names:
+        if name in searched:
+            continue
+        searched.add(name)
+
         try:
             artist_results = ytm.search(name, filter="artists", limit=1)
         except Exception:
@@ -236,12 +255,22 @@ def _search_artist_fallback(ytm, track, threshold=0.6):
 
                 for t in album_data.get('tracks', []):
                     t_title = normalize_title(t.get('title', ''))
-                    score = word_ratio(track_name, t_title)
-                    if score >= 0.5:
-                        artists = join_artist_names(t.get('artists', []))
-                        return t['videoId'], f"{t['title']} - {artists}"
+                    title_score = word_ratio(track_name, t_title)
+                    if title_score < 0.5:
+                        continue
+                    t_artists = join_artist_names(t.get('artists', []))
+                    artist_score = _artist_ratio(track_artists, t_artists)
+                    if artist_score < 0.5:
+                        continue
+                    candidates.append((title_score, artist_score, t))
 
-    return None, []
+    if not candidates:
+        return None, []
+
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    best_title, best_artist, best_match = candidates[0]
+    artists = join_artist_names(best_match.get('artists', []))
+    return best_match['videoId'], f"{best_match['title']} - {artists}"
 
 
 def search_track(ytm, track, threshold=0.6):
@@ -258,26 +287,37 @@ def search_track(ytm, track, threshold=0.6):
         best_score, best_match = scored[0]
 
     if best_match and best_score >= threshold:
-        title_exact = word_ratio(
-            normalize_title(track['name']),
-            normalize_title(best_match.get('title', ''))
+        track_title = normalize_title(track['name'])
+        result_title = normalize_title(best_match.get('title', ''))
+        title_exact = word_ratio(track_title, result_title) >= 0.9
+        base_exact = word_ratio(
+            normalize_title(strip_parens(track['name'])),
+            normalize_title(strip_parens(best_match.get('title', '')))
         ) >= 0.9
 
-        if _album_matches(track, best_match) and title_exact:
+        if _album_matches(track, best_match) and (title_exact or base_exact):
             artists = join_artist_names(best_match.get('artists', []))
             return best_match['videoId'], f"{best_match['title']} - {artists} [high]"
 
-        vid, info = _search_album_fallback(ytm, track, threshold)
-        if vid:
-            return vid, f"{info} [medium]"
+        result = _search_album_fallback(ytm, track, threshold)
+        if result[0]:
+            vid, info, scores = result
+            level = "high" if scores["title"] >= 0.9 and scores["artist"] >= 0.9 else "medium"
+            return vid, f"{info} [{level}]"
+
+        if title_exact or base_exact:
+            artists = join_artist_names(best_match.get('artists', []))
+            return best_match['videoId'], f"{best_match['title']} - {artists} [medium]"
 
         if _album_matches(track, best_match):
             artists = join_artist_names(best_match.get('artists', []))
             return best_match['videoId'], f"{best_match['title']} - {artists} [medium]"
 
-    vid, info = _search_album_fallback(ytm, track, threshold)
-    if vid:
-        return vid, f"{info} [medium]"
+    result = _search_album_fallback(ytm, track, threshold)
+    if result[0]:
+        vid, info, scores = result
+        level = "high" if scores["title"] >= 0.9 and scores["artist"] >= 0.9 else "medium"
+        return vid, f"{info} [{level}]"
 
     vid, info = _search_artist_fallback(ytm, track, threshold)
     if vid:
