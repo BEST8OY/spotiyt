@@ -6,7 +6,7 @@ from ytmusic_utils import (
     normalize_title, parse_spotify_items, remove_in_batches, save_registry,
     search_track, word_ratio, _artist_ratio, join_artist_names,
 )
-from spotify2ytmusic import get_token, fetch_playlist
+from spotify2ytmusic import get_token, fetch_playlist, load_cookies
 
 
 def get_yt_playlist(ytm, playlist_id):
@@ -56,8 +56,9 @@ def sync(spotify_id, ytmusic_id, preserve=False, personalized=False):
     ytm = get_ytmusic_client()
 
     print("Fetching Spotify playlist...")
-    token, cookies = get_token()
-    name, items = fetch_playlist(token, spotify_id, cookies if personalized else None)
+    token = get_token()
+    cookies = load_cookies() if personalized else None
+    name, items = fetch_playlist(token, spotify_id, cookies)
     print(f"Spotify: {name} ({len(items)} tracks)")
 
     yt_name, yt_tracks = get_yt_playlist(ytm, ytmusic_id)
