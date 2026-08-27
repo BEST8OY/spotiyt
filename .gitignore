@@ -2,12 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
-auth.json
-sp_dc.txt
-ytm-cookies.json
-cookies.txt
-headers.txt
+data/
 *.csv
 .env
 output/
-playlists.json

@@ -13,8 +13,9 @@ from spotiyt.ui import console, print_success, print_error, print_warning, print
 
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
 PLAYLIST_HASH = "bb67e0af06e8d6f52b531f97468ee4acd44cd0f82b988e15c2ea47b1148efc77"
+from spotiyt.config import SP_DC_FILE, ensure_data_dir
+
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-SP_DC_FILE = "sp_dc.txt"
 
 
 def datetime_from_unix(ts: int) -> datetime:
@@ -22,10 +23,11 @@ def datetime_from_unix(ts: int) -> datetime:
 
 
 def load_sp_dc() -> str:
+    ensure_data_dir()
     path = Path(SP_DC_FILE)
     if not path.exists():
         print_error(f"Spotify credentials file [yellow]{SP_DC_FILE}[/yellow] not found.")
-        print_info("To use personalized playlists, save your Spotify 'sp_dc' cookie to sp_dc.txt.")
+        print_info(f"To use personalized playlists, save your Spotify 'sp_dc' cookie to {SP_DC_FILE}.")
         sys.exit(1)
     sp_dc = path.read_text().strip()
     if not sp_dc:

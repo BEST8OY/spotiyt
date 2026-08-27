@@ -18,9 +18,11 @@ from spotiyt.sync import (
     load_registry, register_playlist
 )
 from spotiyt.auth import refresh_from_cookies_json
+from spotiyt.config import EXPORTS_DIR, COOKIES_JSON, AUTH_JSON, ensure_data_dir
 
 
 def process_spotify_import(raw_id_or_url: str, personalized: bool = False, output_dir: Optional[str] = None, dry_run: bool = False):
+    ensure_data_dir()
     playlist_id = extract_spotify_id(raw_id_or_url)
     if not playlist_id:
         print_error(f"Could not extract a valid Spotify Playlist ID from: [yellow]{raw_id_or_url}[/yellow]")
@@ -31,7 +33,7 @@ def process_spotify_import(raw_id_or_url: str, personalized: bool = False, outpu
     name, items = fetch_playlist(token, playlist_id)
 
     sanitized = sanitize_filename(name) or playlist_id
-    out_dir = Path(output_dir) if output_dir else Path.cwd()
+    out_dir = Path(output_dir) if output_dir else EXPORTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     output_file = str(out_dir / f"{sanitized}.csv")
 
@@ -168,8 +170,8 @@ def main():
 
     # Subcommand: auth
     auth_parser = subparsers.add_parser("auth", help="Generate auth.json from cookies JSON")
-    auth_parser.add_argument("cookies_file", nargs="?", default="ytm-cookies.json", help="Path to exported cookies JSON")
-    auth_parser.add_argument("-o", "--output", default="auth.json", help="Path to output auth.json")
+    auth_parser.add_argument("cookies_file", nargs="?", default=str(COOKIES_JSON), help=f"Path to exported cookies JSON (default: {COOKIES_JSON})")
+    auth_parser.add_argument("-o", "--output", default=str(AUTH_JSON), help=f"Path to output auth.json (default: {AUTH_JSON})")
 
     # Subcommand: list
     subparsers.add_parser("list", help="List registered playlist mappings")

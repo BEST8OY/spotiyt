@@ -4,16 +4,21 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 from ytmusicapi.setup import setup_browser
 from spotiyt.ui import console, print_banner, print_success, print_error, print_warning, print_info
+from spotiyt.config import COOKIES_JSON, AUTH_JSON, ensure_data_dir
 
 
-def refresh_from_cookies_json(cookies_path: str = "ytm-cookies.json", output_auth: str = "auth.json"):
-    path = Path(cookies_path)
+def refresh_from_cookies_json(cookies_path: Optional[Path] = None, output_auth: Optional[Path] = None):
+    ensure_data_dir()
+    path = Path(cookies_path) if cookies_path else COOKIES_JSON
+    out_auth = Path(output_auth) if output_auth else AUTH_JSON
+
     if not path.exists():
-        print_error(f"Cookies file not found: [yellow]{cookies_path}[/yellow]")
-        print_info("Export your YouTube Music cookies in JSON format (e.g., using Cookie-Editor extension) and save as ytm-cookies.json.")
+        print_error(f"Cookies file not found: [yellow]{path}[/yellow]")
+        print_info(f"Export your YouTube Music cookies in JSON format and save as {path}.")
         sys.exit(1)
 
     with console.status(f"[bold cyan]Reading cookies from {cookies_path}..."):

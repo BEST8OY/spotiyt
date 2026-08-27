@@ -8,6 +8,7 @@ A fast, reliable, and modular Python package + interactive CLI built with **[uv]
 
 - **Built for UV**: Ultra-fast environment synchronization and execution using `uv`.
 - **Unified CLI & Interactive Dashboard**: Launch with `uv run spotiyt` for a full interactive terminal menu, or use dedicated subcommands (`sync`, `import`, `csv`, `auth`, `list`).
+- **Clean Data & Secrets Isolation**: All tokens, session cookies, registries, and exported files reside in a dedicated, git-ignored `data/` directory.
 - **GraphQL Spotify Export**: Fetches full playlist metadata with 17 attributes without needing official Spotify Developer API keys.
 - **Smart Matching Engine**:
   - **Dynamic Artist Matching**: Intelligently handles leading `"The "` prefixes (*The Goo Goo Dolls* $\leftrightarrow$ *Goo Goo Dolls*, *The Beatles* $\leftrightarrow$ *Beatles*), multi-artist delimiters (`;`, `,`, `&`, `feat.`, `ft.`, `x`, `with`), and diacritics/accents (*Beyoncé* $\leftrightarrow$ *Beyonce*).
@@ -44,18 +45,19 @@ uv sync
 Retrieve your `sp_dc` cookie from browser DevTools:
 1. Open [open.spotify.com](https://open.spotify.com) and log in.
 2. Open DevTools (`F12` or `Ctrl+Shift+I`) $\rightarrow$ **Application** $\rightarrow$ **Cookies** $\rightarrow$ `https://open.spotify.com`.
-3. Copy the value of `sp_dc` and save it to `sp_dc.txt`:
+3. Copy the value of `sp_dc` and save it to `data/sp_dc.txt`:
 
 ```bash
-echo -n "YOUR_SP_DC_COOKIE_HERE" > sp_dc.txt
+mkdir -p data
+echo -n "YOUR_SP_DC_COOKIE_HERE" > data/sp_dc.txt
 ```
 
 ### 3. Configure YouTube Music Authentication
 
 1. Open [music.youtube.com](https://music.youtube.com) and ensure you are logged in.
 2. Export your cookies in JSON format using a browser extension (e.g., *Cookie-Editor* or *EditThisCookie*).
-3. Save the JSON file as `ytm-cookies.json` in the project root.
-4. Generate `auth.json`:
+3. Save the JSON file as `data/ytm-cookies.json`.
+4. Generate `data/auth.json`:
 
 ```bash
 uv run spotiyt auth
@@ -127,7 +129,7 @@ uv run spotiyt csv <path_to_csv_file> [playlist_name]
 
 *Example:*
 ```bash
-uv run spotiyt csv Zombie_Radio.csv "Zombie Radio"
+uv run spotiyt csv data/exports/Zombie_Radio.csv "Zombie Radio"
 ```
 
 *Required CSV Columns:* `track_name`, `artists` *(Optional: `album_name`)*.
@@ -165,16 +167,18 @@ When matching tracks between Spotify and YouTube Music:
 
 ```
 .
-├── pyproject.toml              # UV / PEP 621 project configuration
-├── uv.lock                     # UV lockfile with pinned dependencies
-├── README.md                   # Documentation
-├── LICENSE                     # MIT License
-├── .gitignore                  # Git ignore rules
+├── data/                       # Dedicated data & credential storage (git-ignored)
+│   ├── auth.json               # Generated YouTube Music session headers
+│   ├── ytm-cookies.json        # Exported browser cookies
+│   ├── sp_dc.txt               # Spotify session cookie
+│   ├── playlists.json          # Playlist registry mappings
+│   └── exports/                # Exported CSV files and dropped/not_found reports
 │
 ├── spotiyt/                    # Main Python package
 │   ├── __init__.py             # Package metadata
 │   ├── __main__.py             # Module execution entrypoint (`uv run python -m spotiyt`)
 │   ├── cli.py                  # Unified CLI dispatcher (sync, import, csv, auth, list)
+│   ├── config.py               # Centralized data and credential paths
 │   ├── matching.py             # Normalization, title stripping, artist fuzzy matching heuristics
 │   ├── spotify.py              # Spotify TOTP token generation, GraphQL fetch, CSV exporter
 │   ├── ytmusic.py              # YouTube Music client, progressive search, batch ops, verify
@@ -182,19 +186,25 @@ When matching tracks between Spotify and YouTube Music:
 │   ├── auth.py                 # Cookie parser and auth.json generator
 │   └── ui.py                   # Centralized Rich terminal engine, progress bars, tables, CursesMenu
 │
-└── tests/                      # Dedicated test suite
-    ├── __init__.py
-    └── test_matching.py        # Automated unit and regression tests
+├── tests/                      # Dedicated test suite
+│   ├── __init__.py
+│   └── test_matching.py        # Automated unit and regression tests
+│
+├── pyproject.toml              # UV / PEP 621 project configuration
+├── uv.lock                     # UV lockfile with pinned dependencies
+├── README.md                   # Documentation
+├── LICENSE                     # MIT License
+└── .gitignore                  # Git ignore rules
 ```
 
 ---
 
 ## Output Files
 
-- `<playlist_name>.csv`: Complete exported metadata from Spotify.
-- `<playlist_name>_not_found.csv`: Tracks that could not be matched on YouTube Music (search failure).
-- `<playlist_name>_dropped.csv`: Tracks found by search but silently rejected by YouTube Music's insertion API (insertion failure).
-- `playlists.json`: Registry storing mappings between Spotify and YouTube Music playlist IDs.
+- `data/exports/<playlist_name>.csv`: Complete exported metadata from Spotify.
+- `data/exports/<playlist_name>_not_found.csv`: Tracks that could not be matched on YouTube Music (search failure).
+- `data/exports/<playlist_name>_dropped.csv`: Tracks found by search but silently rejected by YouTube Music's insertion API (insertion failure).
+- `data/playlists.json`: Registry storing mappings between Spotify and YouTube Music playlist IDs.
 
 ---
 
@@ -202,7 +212,7 @@ When matching tracks between Spotify and YouTube Music:
 
 ### Cookie Expiration
 If YouTube Music API calls fail with authentication errors:
-1. Export fresh cookies from [music.youtube.com](https://music.youtube.com) to `ytm-cookies.json`.
+1. Export fresh cookies from [music.youtube.com](https://music.youtube.com) to `data/ytm-cookies.json`.
 2. Run `uv run spotiyt auth`.
 
 ### Spotify GraphQL Hash Expiration (`PLAYLIST_HASH`)

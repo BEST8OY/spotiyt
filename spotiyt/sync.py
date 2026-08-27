@@ -16,12 +16,12 @@ from spotiyt.ui import (
     console, CursesMenu, print_banner, print_success, print_error,
     print_warning, print_info, print_summary_table, Table
 )
+from spotiyt.config import REGISTRY_FILE, ensure_data_dir
 
-REGISTRY = "playlists.json"
 
-
-def load_registry(path_str: str = REGISTRY) -> Dict[str, Dict[str, str]]:
-    path = Path(path_str)
+def load_registry(path_obj: Optional[Path] = None) -> Dict[str, Dict[str, str]]:
+    ensure_data_dir()
+    path = Path(path_obj) if path_obj else REGISTRY_FILE
     if path.exists():
         try:
             return json.loads(path.read_text())
@@ -30,8 +30,10 @@ def load_registry(path_str: str = REGISTRY) -> Dict[str, Dict[str, str]]:
     return {}
 
 
-def save_registry(data: Dict[str, Dict[str, str]], path_str: str = REGISTRY):
-    Path(path_str).write_text(json.dumps(data, indent=2) + "\n")
+def save_registry(data: Dict[str, Dict[str, str]], path_obj: Optional[Path] = None):
+    ensure_data_dir()
+    path = Path(path_obj) if path_obj else REGISTRY_FILE
+    path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 def register_playlist(spotify_id: str, ytmusic_id: str, name: str):

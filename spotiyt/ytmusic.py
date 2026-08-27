@@ -18,15 +18,17 @@ from spotiyt.ui import (
     print_warning, print_info, print_summary_table
 )
 
-AUTH_JSON = "auth.json"
+from spotiyt.config import AUTH_JSON, ensure_data_dir
 
 
-def get_ytmusic_client(auth_file: str = AUTH_JSON) -> YTMusic:
-    if not Path(auth_file).exists():
-        print_error(f"YouTube Music credentials file [yellow]{auth_file}[/yellow] not found.")
-        print_info("Run [cyan]python -m spotiyt auth[/cyan] or [cyan]python refresh_yt_auth.py[/cyan] to generate auth.json from cookies.")
+def get_ytmusic_client(auth_file: Optional[Path] = None) -> YTMusic:
+    ensure_data_dir()
+    target_auth = Path(auth_file) if auth_file else AUTH_JSON
+    if not target_auth.exists():
+        print_error(f"YouTube Music credentials file [yellow]{target_auth}[/yellow] not found.")
+        print_info("Run [cyan]spotiyt auth[/cyan] to generate auth.json from cookies.")
         sys.exit(1)
-    return YTMusic(auth_file)
+    return YTMusic(str(target_auth))
 
 
 def _search_album_fallback(ytm: YTMusic, track: Dict[str, Any], threshold: float = 0.6) -> Tuple[Optional[str], Optional[str], Optional[Dict[str, float]]]:
