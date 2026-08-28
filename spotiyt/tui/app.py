@@ -44,7 +44,7 @@ from spotiyt.sync import (
     save_registry,
     sync,
 )
-from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal
+from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal, LiveSyncModal
 from spotiyt.ui import extract_spotify_id
 from spotiyt.ytmusic import import_to_ytmusic
 
@@ -69,6 +69,7 @@ class SpotiYTApp(App[None]):
 
     selected_spotify_id: reactive[str | None] = reactive(None)
     is_busy: reactive[bool] = reactive(False)
+    _playlist_statuses: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -99,6 +100,7 @@ class SpotiYTApp(App[None]):
             # Tab 2: Sync Studio
             with TabPane("Sync Studio", id="tab-sync"):
                 with Vertical(classes="form-panel"):
+                    yield Label("⚡ Sync Workbench & Parameters", classes="form-section-title")
                     with Horizontal(classes="form-row"):
                         yield Label("Select Playlist:", classes="form-label")
                         yield Select[str]([], prompt="Choose registered playlist...", id="sync-select-playlist")
@@ -126,8 +128,10 @@ class SpotiYTApp(App[None]):
                         yield Button("Start Sync", variant="primary", id="btn-sync-start", classes="btn-primary")
                         yield Button("Preview Dry Run", variant="default", id="btn-sync-preview", classes="btn-info")
                         yield Button("Clear Log", variant="default", id="btn-sync-clear", classes="btn-secondary")
+                        yield Button("Reset Inputs", variant="default", id="btn-sync-reset", classes="btn-secondary")
 
                 with Vertical(classes="output-panel"):
+                    yield Label("📊 Live Telemetry & Log Console", classes="form-section-title")
                     yield ProgressBar(total=100, show_eta=False, id="sync-progress")
                     yield RichLog(highlight=True, markup=True, id="sync-log")
 
@@ -244,7 +248,7 @@ class SpotiYTApp(App[None]):
         ensure_data_dir()
         table = self.query_one("#table-playlists", DataTable)
         table.cursor_type = "row"
-        table.add_columns("#", "Playlist Name", "Spotify ID", "YouTube Music ID")
+        table.add_columns("#", "Playlist Name", "Spotify ID", "YouTube Music ID", "Status")
         self.refresh_all()
 
     def action_switch_tab(self, tab_id: str) -> None:
@@ -259,6 +263,18 @@ class SpotiYTApp(App[None]):
         self.refresh_dashboard()
         self.refresh_auth_status()
 
+    def set_playlist_status(self, sid: str, status_markup: str) -> None:
+        self._playlist_statuses[sid] = status_markup
+        try:
+            table = self.query_one("#table-playlists", DataTable)
+            if table.is_valid_row_key(sid):
+                for col in table.columns.values():
+                    if str(col.label) == "Status":
+                        table.update_cell(sid, col.key, status_markup)
+                        break
+        except Exception:
+            pass
+
     def refresh_dashboard(self) -> None:
         data = load_registry()
         table = self.query_one("#table-playlists", DataTable)
@@ -268,7 +284,8 @@ class SpotiYTApp(App[None]):
         for idx, (sid, info) in enumerate(data.items(), 1):
             name = info.get("name", "Untitled")
             ytid = info.get("ytmusic_id", "")
-            table.add_row(str(idx), name, sid, ytid, key=sid)
+            status = self._playlist_statuses.get(sid, "[dim]Idle[/dim]")
+            table.add_row(str(idx), name, sid, ytid, status, key=sid)
             select_options.append((f"{name} ({sid[:10]}...)", sid))
 
         # Update Sync Select dropdown
@@ -389,7 +406,14 @@ class SpotiYTApp(App[None]):
             return
         preserve = self.query_one("#dash-switch-preserve", Switch).value
         personalized = self.query_one("#dash-switch-personalized", Switch).value
-        self.trigger_sync(sid, info["ytmusic_id"], preserve=preserve, personalized=personalized, dry_run=False)
+        self.trigger_sync(
+            sid,
+            info["ytmusic_id"],
+            preserve=preserve,
+            personalized=personalized,
+            dry_run=False,
+            show_live_modal=True,
+        )
 
     @on(Button.Pressed, "#btn-dash-dry")
     def on_dash_dry_pressed(self) -> None:
@@ -410,6 +434,7 @@ class SpotiYTApp(App[None]):
             personalized=personalized,
             dry_run=True,
             show_modal=True,
+            show_live_modal=True,
         )
 
     @on(Button.Pressed, "#btn-dash-sync-all")
@@ -418,13 +443,25 @@ class SpotiYTApp(App[None]):
         if not data:
             self.notify("No playlists registered to sync.", title="Warning", severity="warning")
             return
+        if self.is_busy:
+            self.notify("Another task is currently running. Please wait.", title="Busy", severity="warning")
+            return
         preserve = self.query_one("#dash-switch-preserve", Switch).value
         personalized = self.query_one("#dash-switch-personalized", Switch).value
 
         def handle_confirm(confirmed: bool) -> None:
             if confirmed:
-                self.action_switch_tab("tab-sync")
-                self.worker_sync_all(preserve=preserve, personalized=personalized, dry_run=False)
+                live_modal = LiveSyncModal(
+                    title=f"⚡ Batch Syncing {len(data)} Playlists",
+                    subtitle="Starting batch synchronization...",
+                )
+                self.push_screen(live_modal)
+                self.worker_sync_all(
+                    preserve=preserve,
+                    personalized=personalized,
+                    dry_run=False,
+                    live_modal=live_modal,
+                )
 
         self.push_screen(
             ConfirmModal(
@@ -441,10 +478,23 @@ class SpotiYTApp(App[None]):
         if not data:
             self.notify("No playlists registered to preview.", title="Warning", severity="warning")
             return
+        if self.is_busy:
+            self.notify("Another task is currently running. Please wait.", title="Busy", severity="warning")
+            return
         preserve = self.query_one("#dash-switch-preserve", Switch).value
         personalized = self.query_one("#dash-switch-personalized", Switch).value
-        self.action_switch_tab("tab-sync")
-        self.worker_sync_all(preserve=preserve, personalized=personalized, dry_run=True)
+
+        live_modal = LiveSyncModal(
+            title=f"⚡ Batch Previewing {len(data)} Playlists",
+            subtitle="Starting batch dry run...",
+        )
+        self.push_screen(live_modal)
+        self.worker_sync_all(
+            preserve=preserve,
+            personalized=personalized,
+            dry_run=True,
+            live_modal=live_modal,
+        )
 
     @on(Button.Pressed, "#btn-dash-add")
     def on_dash_add_pressed(self) -> None:
@@ -566,7 +616,7 @@ class SpotiYTApp(App[None]):
         personalized = self.query_one("#sync-switch-personalized", Switch).value
         dry_run = self.query_one("#sync-switch-dry", Switch).value
 
-        self.trigger_sync(sid, ytid, preserve, personalized, dry_run)
+        self.trigger_sync(sid, ytid, preserve, personalized, dry_run, show_live_modal=False)
 
     @on(Button.Pressed, "#btn-sync-preview")
     def on_sync_preview_pressed(self) -> None:
@@ -580,23 +630,57 @@ class SpotiYTApp(App[None]):
         preserve = self.query_one("#sync-switch-preserve", Switch).value
         personalized = self.query_one("#sync-switch-personalized", Switch).value
 
-        self.trigger_sync(sid, ytid, preserve, personalized, dry_run=True, show_modal=True)
+        self.trigger_sync(sid, ytid, preserve, personalized, dry_run=True, show_modal=True, show_live_modal=False)
 
     @on(Button.Pressed, "#btn-sync-clear")
     def on_sync_clear_pressed(self) -> None:
         self.query_one("#sync-log", RichLog).clear()
         self.query_one("#sync-progress", ProgressBar).update(progress=0, total=100)
 
+    @on(Button.Pressed, "#btn-sync-reset")
+    def on_sync_reset_pressed(self) -> None:
+        self.query_one("#sync-input-spotify-id", Input).value = ""
+        self.query_one("#sync-input-ytmusic-id", Input).value = ""
+        sync_select = self.query_one("#sync-select-playlist", Select)
+        sync_select.clear()
+        self.notify("Sync Studio inputs cleared.", title="Reset", severity="information")
+
     def trigger_sync(
-        self, sid: str, ytid: str, preserve: bool, personalized: bool, dry_run: bool, show_modal: bool = False
+        self,
+        sid: str,
+        ytid: str,
+        preserve: bool,
+        personalized: bool,
+        dry_run: bool,
+        show_modal: bool = False,
+        show_live_modal: bool = True,
     ) -> None:
         if self.is_busy:
             self.notify("Another task is currently running. Please wait.", title="Busy", severity="warning")
             return
         self.query_one("#sync-input-spotify-id", Input).value = sid
         self.query_one("#sync-input-ytmusic-id", Input).value = ytid
-        self.action_switch_tab("tab-sync")
-        self.worker_sync(sid, ytid, preserve, personalized, dry_run, show_modal)
+
+        live_modal: LiveSyncModal | None = None
+        if show_live_modal:
+            data = load_registry()
+            pl_name = data.get(sid, {}).get("name", sid)
+            title = f"Previewing: {pl_name}" if dry_run else f"Syncing: {pl_name}"
+            live_modal = LiveSyncModal(
+                title=f"🔄 {title}",
+                subtitle="Initializing sync engine...",
+            )
+            self.push_screen(live_modal)
+
+        self.worker_sync(
+            sid,
+            ytid,
+            preserve,
+            personalized,
+            dry_run,
+            show_modal=show_modal,
+            live_modal=live_modal,
+        )
 
     # ==================== Spotify Importer Handlers ====================
 
@@ -674,7 +758,7 @@ class SpotiYTApp(App[None]):
 
     # ==================== Background Workers ====================
 
-    def _make_logger(self, rich_log: RichLog):
+    def _make_logger(self, rich_log: RichLog, live_modal: LiveSyncModal | None = None):
         def log_cb(level: str, msg: str):
             prefix = {
                 "success": "[bold green]✔[/bold green] ",
@@ -683,15 +767,20 @@ class SpotiYTApp(App[None]):
                 "info": "[bold cyan]ℹ[/bold cyan] ",
                 "dim": "  [dim]•[/dim] ",
             }.get(level, "")
-            self.call_from_thread(rich_log.write, f"{prefix}{msg}")
+            formatted = f"{prefix}{msg}"
+            self.call_from_thread(rich_log.write, formatted)
+            if live_modal:
+                self.call_from_thread(live_modal.write_log, formatted)
 
         return log_cb
 
-    def _make_progress(self, progress_bar: ProgressBar):
+    def _make_progress(self, progress_bar: ProgressBar, live_modal: LiveSyncModal | None = None):
         def progress_cb(current: int, total: int, description: str):
             def update_ui():
                 if total > 0:
                     progress_bar.update(total=total, progress=current)
+                if live_modal:
+                    live_modal.update_progress(current, total, description)
 
             self.call_from_thread(update_ui)
 
@@ -699,15 +788,23 @@ class SpotiYTApp(App[None]):
 
     @work(thread=True, exclusive=True)
     def worker_sync(
-        self, sid: str, ytid: str, preserve: bool, personalized: bool, dry_run: bool, show_modal: bool = False
+        self,
+        sid: str,
+        ytid: str,
+        preserve: bool,
+        personalized: bool,
+        dry_run: bool,
+        show_modal: bool = False,
+        live_modal: LiveSyncModal | None = None,
     ) -> None:
         self.is_busy = True
+        self.call_from_thread(self.set_playlist_status, sid, "[bold yellow]⏳ Syncing...[/bold yellow]")
         rich_log = self.query_one("#sync-log", RichLog)
         progress_bar = self.query_one("#sync-progress", ProgressBar)
         self.call_from_thread(progress_bar.update, progress=0, total=100)
 
-        log_cb = self._make_logger(rich_log)
-        progress_cb = self._make_progress(progress_bar)
+        log_cb = self._make_logger(rich_log, live_modal=live_modal)
+        progress_cb = self._make_progress(progress_bar, live_modal=live_modal)
 
         try:
             log_cb("info", f"Initiating sync for Spotify playlist [bold]{sid}[/bold] ➔ [bold]{ytid}[/bold]...")
@@ -723,35 +820,59 @@ class SpotiYTApp(App[None]):
             self.call_from_thread(progress_bar.update, progress=100, total=100)
 
             if dry_run and show_modal:
+                if live_modal:
+                    self.call_from_thread(live_modal.dismiss)
+                self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
                 self.call_from_thread(self.push_screen, DryRunModal(summary))
             elif dry_run:
+                if live_modal:
+                    self.call_from_thread(live_modal.set_complete, "Dry run preview completed.", is_success=True)
+                self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
                 self.call_from_thread(
                     self.notify, "Dry run preview completed.", title="Dry Run", severity="information"
                 )
             else:
+                added = summary.get("added", 0)
+                removed = summary.get("removed", 0)
+                status_text = f"[bold green]✔ Synced (+{added} -{removed})[/bold green]"
+                self.call_from_thread(self.set_playlist_status, sid, status_text)
+                if live_modal:
+                    self.call_from_thread(
+                        live_modal.set_complete,
+                        f"Sync completed! Added: {added}, Removed: {removed}",
+                        is_success=True,
+                    )
                 self.call_from_thread(
                     self.notify,
-                    f"Sync completed! Added: {summary.get('added')}, Removed: {summary.get('removed')}",
+                    f"Sync completed! Added: {added}, Removed: {removed}",
                     title="Sync Finished",
                     severity="information",
                 )
 
         except Exception as e:
             log_cb("error", f"Sync failed: {e}")
+            self.call_from_thread(self.set_playlist_status, sid, "[bold red]✖ Failed[/bold red]")
+            if live_modal:
+                self.call_from_thread(live_modal.set_complete, f"Failed: {e}", is_success=False)
             self.call_from_thread(self.notify, f"Sync failed: {e}", title="Error", severity="error")
         finally:
             self.is_busy = False
 
     @work(thread=True, exclusive=True)
-    def worker_sync_all(self, preserve: bool, personalized: bool, dry_run: bool) -> None:
+    def worker_sync_all(
+        self,
+        preserve: bool,
+        personalized: bool,
+        dry_run: bool,
+        live_modal: LiveSyncModal | None = None,
+    ) -> None:
         self.is_busy = True
-        self.call_from_thread(self.action_switch_tab, "tab-sync")
         rich_log = self.query_one("#sync-log", RichLog)
         progress_bar = self.query_one("#sync-progress", ProgressBar)
         self.call_from_thread(rich_log.clear)
 
-        log_cb = self._make_logger(rich_log)
-        progress_cb = self._make_progress(progress_bar)
+        log_cb = self._make_logger(rich_log, live_modal=live_modal)
+        progress_cb = self._make_progress(progress_bar, live_modal=live_modal)
 
         data = load_registry()
         total_pls = len(data)
@@ -762,10 +883,20 @@ class SpotiYTApp(App[None]):
             for idx, (sid, info) in enumerate(data.items(), 1):
                 pname = info.get("name", "Untitled")
                 ytid = info.get("ytmusic_id", "")
+                self.call_from_thread(
+                    self.set_playlist_status, sid, f"[bold yellow]⏳ Syncing ({idx}/{total_pls})[/bold yellow]"
+                )
+                if live_modal:
+                    self.call_from_thread(
+                        live_modal.update_progress,
+                        int(((idx - 1) / total_pls) * 100),
+                        100,
+                        f"[{idx}/{total_pls}] Syncing: {pname}",
+                    )
                 log_cb("info", f"\n[{idx}/{total_pls}] Processing: [bold cyan]{pname}[/bold cyan] ({sid})")
 
                 try:
-                    sync(
+                    summary = sync(
                         sid,
                         ytid,
                         preserve=preserve,
@@ -775,9 +906,24 @@ class SpotiYTApp(App[None]):
                         progress_cb=progress_cb,
                     )
                     success_count += 1
+                    added = summary.get("added", 0)
+                    removed = summary.get("removed", 0)
+                    if dry_run:
+                        self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
+                    else:
+                        self.call_from_thread(
+                            self.set_playlist_status, sid, f"[bold green]✔ Synced (+{added} -{removed})[/bold green]"
+                        )
                 except Exception as e:
+                    self.call_from_thread(self.set_playlist_status, sid, "[bold red]✖ Failed[/bold red]")
                     log_cb("error", f"Failed syncing '{pname}': {e}")
 
+            if live_modal:
+                self.call_from_thread(
+                    live_modal.set_complete,
+                    f"Batch sync finished ({success_count}/{total_pls} successful)",
+                    is_success=True,
+                )
             log_cb("success", f"\nBatch sync completed for {success_count}/{total_pls} playlists.")
             self.call_from_thread(
                 self.notify,
@@ -787,6 +933,8 @@ class SpotiYTApp(App[None]):
             )
         except Exception as e:
             log_cb("error", f"Batch sync error: {e}")
+            if live_modal:
+                self.call_from_thread(live_modal.set_complete, f"Batch sync error: {e}", is_success=False)
         finally:
             self.is_busy = False
 

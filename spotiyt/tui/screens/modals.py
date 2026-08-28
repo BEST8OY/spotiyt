@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Label, Static
+from textual.widgets import Button, DataTable, Input, Label, ProgressBar, RichLog, Static
 
 from spotiyt.ui import extract_spotify_id
 
@@ -204,6 +204,97 @@ class DryRunModal(ModalScreen[None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-close":
+            self.dismiss(None)
+
+    def action_dismiss_modal(self) -> None:
+        self.dismiss(None)
+
+
+class LiveSyncModal(ModalScreen[None]):
+    """Modal displaying live synchronization progress, stage status, and streaming logs."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss_modal", "Close"),
+    ]
+
+    def __init__(
+        self,
+        title: str = "Synchronizing Playlist",
+        subtitle: str = "Initializing sync engine...",
+        id: str | None = None,
+        classes: str | None = None,
+    ):
+        super().__init__(id=id, classes=classes)
+        self.dialog_title = title
+        self.initial_subtitle = subtitle
+        self.is_finished = False
+
+    def compose(self) -> ComposeResult:
+        with Container(classes="modal-sync modal-large"):
+            yield Label(self.dialog_title, id="sync-modal-title", classes="modal-title")
+            yield Label(self.initial_subtitle, id="sync-modal-status", classes="sync-modal-subtitle")
+            yield ProgressBar(total=100, show_eta=False, id="sync-modal-progress")
+            yield RichLog(highlight=True, markup=True, id="sync-modal-log")
+            with Horizontal(classes="modal-buttons"):
+                yield Button(
+                    "Run in Background",
+                    variant="default",
+                    id="btn-sync-modal-bg",
+                    classes="btn-secondary",
+                )
+                yield Button(
+                    "Close",
+                    variant="primary",
+                    id="btn-sync-modal-close",
+                    classes="btn-primary",
+                )
+
+    def on_mount(self) -> None:
+        try:
+            close_btn = self.query_one("#btn-sync-modal-close", Button)
+            close_btn.display = False
+        except Exception:
+            pass
+
+    def write_log(self, text: str) -> None:
+        try:
+            log_widget = self.query_one("#sync-modal-log", RichLog)
+            log_widget.write(text)
+        except Exception:
+            pass
+
+    def update_progress(self, current: int, total: int, description: str = "") -> None:
+        try:
+            if total > 0:
+                bar = self.query_one("#sync-modal-progress", ProgressBar)
+                bar.update(total=total, progress=current)
+            if description:
+                lbl = self.query_one("#sync-modal-status", Label)
+                lbl.update(description)
+        except Exception:
+            pass
+
+    def set_complete(self, summary_msg: str, is_success: bool = True) -> None:
+        self.is_finished = True
+        try:
+            lbl = self.query_one("#sync-modal-status", Label)
+            color = "green" if is_success else "red"
+            lbl.update(f"[bold {color}]{summary_msg}[/bold {color}]")
+
+            bar = self.query_one("#sync-modal-progress", ProgressBar)
+            bar.update(total=100, progress=100)
+
+            bg_btn = self.query_one("#btn-sync-modal-bg", Button)
+            bg_btn.display = False
+
+            close_btn = self.query_one("#btn-sync-modal-close", Button)
+            close_btn.display = True
+            close_btn.focus()
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id in ("btn-sync-modal-bg", "btn-sync-modal-close"):
             self.dismiss(None)
 
     def action_dismiss_modal(self) -> None:

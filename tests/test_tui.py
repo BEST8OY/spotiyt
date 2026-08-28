@@ -14,7 +14,7 @@ from textual.widgets import (
 )
 
 from spotiyt.tui.app import SpotiYTApp
-from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal
+from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal, LiveSyncModal
 
 
 async def test_app_mount_and_tabs():
@@ -60,6 +60,8 @@ async def test_dashboard_renders_registry():
 
             table = app.query_one("#table-playlists", DataTable)
             assert table.row_count == 2
+            # 5 columns: #, Playlist Name, Spotify ID, YouTube Music ID, Status
+            assert len(table.columns) == 5
 
             # Verify dropdown options populated
             sync_select = app.query_one("#sync-select-playlist", Select)
@@ -67,7 +69,7 @@ async def test_dashboard_renders_registry():
             assert len(user_options) == 2
 
 
-async def test_dashboard_sync_action_switches_tab():
+async def test_dashboard_sync_action_shows_live_modal_and_updates_status():
     sample_registry = {
         "37i9dQZF1E8MCNiiTgwMk8": {
             "name": "Discover Weekly",
@@ -75,7 +77,16 @@ async def test_dashboard_sync_action_switches_tab():
         }
     }
 
-    with patch("spotiyt.tui.app.load_registry", return_value=sample_registry), patch("spotiyt.tui.app.sync"):
+    mock_summary = {
+        "added": 2,
+        "removed": 0,
+        "spotify_name": "Discover Weekly",
+    }
+
+    with (
+        patch("spotiyt.tui.app.load_registry", return_value=sample_registry),
+        patch("spotiyt.tui.app.sync", return_value=mock_summary),
+    ):
         app = SpotiYTApp()
         async with app.run_test(size=(120, 40)) as pilot:
             app.refresh_dashboard()
@@ -90,13 +101,20 @@ async def test_dashboard_sync_action_switches_tab():
             app.query_one("#btn-dash-sync", Button).press()
             await pilot.pause()
 
-            # Verify tab automatically switched to tab-sync
+            # Verify tab remains on dashboard (no disruptive jump)
             tabs = app.query_one("#main-tabs", TabbedContent)
-            assert tabs.active == "tab-sync"
+            assert tabs.active == "tab-dashboard"
 
-            # Verify sync inputs populated
-            assert app.query_one("#sync-input-spotify-id", Input).value == "37i9dQZF1E8MCNiiTgwMk8"
-            assert app.query_one("#sync-input-ytmusic-id", Input).value == "PL_sample_ytm_1"
+            # Verify LiveSyncModal is displayed
+            assert isinstance(app.screen, LiveSyncModal)
+
+            # Close or dismiss modal
+            app.screen.action_dismiss_modal()
+            await pilot.pause()
+
+            # Verify status in app
+            assert "37i9dQZF1E8MCNiiTgwMk8" in app._playlist_statuses
+            assert "Synced" in app._playlist_statuses["37i9dQZF1E8MCNiiTgwMk8"]
 
 
 async def test_dashboard_switches_cross_synchronization():
@@ -168,6 +186,12 @@ async def test_sync_studio_inputs_and_switches():
             app.query_one("#btn-sync-clear", Button).press()
             await pilot.pause()
             assert len(rich_log.lines) == 0
+
+            # Reset inputs button
+            app.query_one("#btn-sync-reset", Button).press()
+            await pilot.pause()
+            assert sid_input.value == ""
+            assert ytid_input.value == ""
 
 
 async def test_spotify_importer_tab():
@@ -340,3 +364,26 @@ async def test_small_screen_termux_compatibility():
 
             await pilot.press("5")
             assert app.query_one("#main-tabs", TabbedContent).active == "tab-auth"
+
+
+async def test_live_sync_modal_flow():
+    app = SpotiYTApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        modal = LiveSyncModal(title="Syncing: Test", subtitle="Starting...")
+        app.push_screen(modal)
+        await pilot.pause()
+
+        # Check widgets mounted
+        assert modal.dialog_title == "Syncing: Test"
+        modal.write_log("ℹ Step 1: Connecting...")
+        modal.update_progress(50, 100, "Matching 5/10 tracks")
+        await pilot.pause()
+
+        # Complete
+        modal.set_complete("Sync completed! Added: 3, Removed: 0", is_success=True)
+        await pilot.pause()
+
+        close_btn = modal.query_one("#btn-sync-modal-close", Button)
+        assert close_btn.display is True
+        close_btn.press()
+        await pilot.pause()

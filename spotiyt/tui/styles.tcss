@@ -31,7 +31,7 @@ Tabs {
     background: #141414;
     height: 3;
     border-bottom: solid #282828;
-    padding: 0 1;
+    padding: 0;
 }
 
 Tabs:focus {
@@ -41,45 +41,53 @@ Tabs:focus {
 Tab {
     padding: 0 2;
     color: #888888;
-    background: #181818;
+    background: transparent;
     text-style: bold;
     height: 3;
+    content-align: center middle;
+    text-align: center;
     border: none;
 }
 
 Tab:hover {
     color: #ffffff;
-    background: #242424;
+    background: #1f1f1f;
 }
 
 Tab:focus {
     color: #ffffff;
-    background: #282828;
+    background: #242424;
 }
 
 Tab.-active {
     color: #1DB954;
-    background: #222222;
+    background: #202020;
     text-style: bold;
-    border-bottom: tall #1DB954;
+    content-align: center middle;
+    text-align: center;
 }
 
 Tab.-active:focus {
     color: #1ed760;
-    background: #242424;
-    border-bottom: tall #1ed760;
+    background: #252525;
 }
 
 Tabs:focus Tab.-active {
-    color: #1DB954;
-    background: #222222;
-    border-bottom: tall #1DB954;
+    color: #1ed760;
+    background: #252525;
 }
 
 Underline {
     background: #1DB954;
     height: 1;
 }
+
+.form-section-title {
+    color: #1DB954;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
 
 TabPane {
     padding: 0 1;
@@ -492,3 +500,30 @@ ModalScreen {
     padding: 1;
     overflow-y: auto;
 }
+
+.modal-sync {
+    width: 96%;
+    max-width: 80;
+    height: 85%;
+    max-height: 28;
+    background: #181818;
+    border: round #1DB954;
+    padding: 1;
+}
+
+.sync-modal-subtitle {
+    color: #00d2ff;
+    text-align: center;
+    margin-bottom: 1;
+    text-style: bold;
+}
+
+#sync-modal-log {
+    height: 1fr;
+    min-height: 8;
+    background: #0d0d0d;
+    border: round #222222;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
