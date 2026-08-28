@@ -71,6 +71,38 @@ async def test_dashboard_renders_registry():
             assert len(user_options) == 2
 
 
+async def test_dashboard_sync_action_switches_tab():
+    sample_registry = {
+        "37i9dQZF1E8MCNiiTgwMk8": {
+            "name": "Discover Weekly",
+            "ytmusic_id": "PL_sample_ytm_1",
+        }
+    }
+
+    with patch("spotiyt.tui.app.load_registry", return_value=sample_registry), patch("spotiyt.tui.app.sync"):
+        app = SpotiYTApp()
+        async with app.run_test(size=(120, 40)) as pilot:
+            app.refresh_dashboard()
+            await pilot.pause()
+
+            # Select playlist in table
+            table = app.query_one("#table-playlists", DataTable)
+            table.move_cursor(row=0)
+            await pilot.pause()
+
+            # Click Sync Selected
+            app.query_one("#btn-dash-sync", Button).press()
+            await pilot.pause()
+
+            # Verify tab automatically switched to tab-sync
+            tabs = app.query_one("#main-tabs", TabbedContent)
+            assert tabs.active == "tab-sync"
+
+            # Verify sync inputs populated
+            assert app.query_one("#sync-input-spotify-id", Input).value == "37i9dQZF1E8MCNiiTgwMk8"
+            assert app.query_one("#sync-input-ytmusic-id", Input).value == "PL_sample_ytm_1"
+
+
 async def test_dashboard_switches_cross_synchronization():
     app = SpotiYTApp()
     async with app.run_test(size=(120, 40)) as pilot:

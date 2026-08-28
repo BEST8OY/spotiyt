@@ -334,12 +334,38 @@ class SpotiYTApp(App[None]):
     def on_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key and event.row_key.value:
             self.selected_spotify_id = str(event.row_key.value)
-            data = load_registry()
-            if self.selected_spotify_id in data:
-                info = data[self.selected_spotify_id]
-                self.query_one("#sync-input-spotify-id", Input).value = self.selected_spotify_id
-                self.query_one("#sync-input-ytmusic-id", Input).value = info.get("ytmusic_id", "")
-                self.query_one("#sync-select-playlist", Select).value = self.selected_spotify_id
+            self._update_selected_playlist_inputs()
+
+    @on(DataTable.RowHighlighted, "#table-playlists")
+    def on_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.row_key and event.row_key.value:
+            self.selected_spotify_id = str(event.row_key.value)
+            self._update_selected_playlist_inputs()
+
+    def _update_selected_playlist_inputs(self) -> None:
+        if not self.selected_spotify_id:
+            return
+        data = load_registry()
+        if self.selected_spotify_id in data:
+            info = data[self.selected_spotify_id]
+            self.query_one("#sync-input-spotify-id", Input).value = self.selected_spotify_id
+            self.query_one("#sync-input-ytmusic-id", Input).value = info.get("ytmusic_id", "")
+            self.query_one("#sync-select-playlist", Select).value = self.selected_spotify_id
+
+    def _ensure_selected_spotify_id(self) -> str | None:
+        if self.selected_spotify_id:
+            return self.selected_spotify_id
+        table = self.query_one("#table-playlists", DataTable)
+        if table.row_count > 0 and table.cursor_row is not None and table.cursor_row >= 0:
+            try:
+                row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+                if row_key and row_key.value:
+                    self.selected_spotify_id = str(row_key.value)
+                    self._update_selected_playlist_inputs()
+                    return self.selected_spotify_id
+            except Exception:
+                pass
+        return None
 
     @on(Switch.Changed, "#dash-switch-preserve")
     def on_dash_preserve_changed(self, event: Switch.Changed) -> None:
@@ -385,34 +411,32 @@ class SpotiYTApp(App[None]):
 
     @on(Button.Pressed, "#btn-dash-sync")
     def on_dash_sync_pressed(self) -> None:
-        if not self.selected_spotify_id:
+        sid = self._ensure_selected_spotify_id()
+        if not sid:
             self.notify("Please select a playlist from the table first.", title="Warning", severity="warning")
             return
         data = load_registry()
-        info = data.get(self.selected_spotify_id)
+        info = data.get(sid)
         if not info:
             return
         preserve = self.query_one("#dash-switch-preserve", Switch).value
         personalized = self.query_one("#dash-switch-personalized", Switch).value
-        self.action_switch_tab("tab-sync")
-        self.trigger_sync(
-            self.selected_spotify_id, info["ytmusic_id"], preserve=preserve, personalized=personalized, dry_run=False
-        )
+        self.trigger_sync(sid, info["ytmusic_id"], preserve=preserve, personalized=personalized, dry_run=False)
 
     @on(Button.Pressed, "#btn-dash-dry")
     def on_dash_dry_pressed(self) -> None:
-        if not self.selected_spotify_id:
+        sid = self._ensure_selected_spotify_id()
+        if not sid:
             self.notify("Please select a playlist from the table first.", title="Warning", severity="warning")
             return
         data = load_registry()
-        info = data.get(self.selected_spotify_id)
+        info = data.get(sid)
         if not info:
             return
         preserve = self.query_one("#dash-switch-preserve", Switch).value
         personalized = self.query_one("#dash-switch-personalized", Switch).value
-        self.action_switch_tab("tab-sync")
         self.trigger_sync(
-            self.selected_spotify_id,
+            sid,
             info["ytmusic_id"],
             preserve=preserve,
             personalized=personalized,
@@ -466,16 +490,17 @@ class SpotiYTApp(App[None]):
 
     @on(Button.Pressed, "#btn-dash-edit")
     def on_dash_edit_pressed(self) -> None:
-        if not self.selected_spotify_id:
+        sid = self._ensure_selected_spotify_id()
+        if not sid:
             self.notify("Please select a playlist to edit.", title="Warning", severity="warning")
             return
         data = load_registry()
-        info = data.get(self.selected_spotify_id, {})
+        info = data.get(sid, {})
 
         def handle_save(result: dict[str, str] | None) -> None:
             if result:
-                if result["spotify_id"] != self.selected_spotify_id and self.selected_spotify_id in data:
-                    data.pop(self.selected_spotify_id)
+                if result["spotify_id"] != sid and sid in data:
+                    data.pop(sid)
                 data[result["spotify_id"]] = {
                     "name": result["name"],
                     "ytmusic_id": result["ytmusic_id"],
@@ -488,7 +513,7 @@ class SpotiYTApp(App[None]):
             EditPlaylistModal(
                 title=f"Edit: {info.get('name', 'Playlist')}",
                 name=info.get("name", ""),
-                spotify_id=self.selected_spotify_id,
+                spotify_id=sid,
                 ytmusic_id=info.get("ytmusic_id", ""),
             ),
             handle_save,
@@ -496,16 +521,17 @@ class SpotiYTApp(App[None]):
 
     @on(Button.Pressed, "#btn-dash-del")
     def on_dash_del_pressed(self) -> None:
-        if not self.selected_spotify_id:
+        sid = self._ensure_selected_spotify_id()
+        if not sid:
             self.notify("Please select a playlist to delete.", title="Warning", severity="warning")
             return
         data = load_registry()
-        info = data.get(self.selected_spotify_id, {})
-        pname = info.get("name", self.selected_spotify_id)
+        info = data.get(sid, {})
+        pname = info.get("name", sid)
 
         def handle_confirm(confirmed: bool) -> None:
-            if confirmed and self.selected_spotify_id:
-                data.pop(self.selected_spotify_id, None)
+            if confirmed and sid:
+                data.pop(sid, None)
                 save_registry(data)
                 self.selected_spotify_id = None
                 self.refresh_dashboard()
@@ -599,6 +625,9 @@ class SpotiYTApp(App[None]):
         if self.is_busy:
             self.notify("Another task is currently running. Please wait.", title="Busy", severity="warning")
             return
+        self.query_one("#sync-input-spotify-id", Input).value = sid
+        self.query_one("#sync-input-ytmusic-id", Input).value = ytid
+        self.action_switch_tab("tab-sync")
         self.worker_sync(sid, ytid, preserve, personalized, dry_run, show_modal)
 
     # ==================== Spotify Importer Handlers ====================
@@ -748,6 +777,7 @@ class SpotiYTApp(App[None]):
     @work(thread=True, exclusive=True)
     def worker_sync_all(self, preserve: bool, personalized: bool, dry_run: bool) -> None:
         self.is_busy = True
+        self.call_from_thread(self.action_switch_tab, "tab-sync")
         rich_log = self.query_one("#sync-log", RichLog)
         progress_bar = self.query_one("#sync-progress", ProgressBar)
         self.call_from_thread(rich_log.clear)
