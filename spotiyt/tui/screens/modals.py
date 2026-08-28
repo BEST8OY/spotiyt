@@ -43,14 +43,12 @@ class ConfirmModal(ModalScreen[bool]):
             yield Label(self.dialog_title, classes="modal-title")
             yield Static(self.dialog_message, classes="modal-body")
             with Horizontal(classes="modal-buttons"):
-                confirm_btn_class = "btn-danger" if self.is_danger else "btn-primary"
                 yield Button(
                     self.confirm_label,
                     variant="error" if self.is_danger else "primary",
                     id="btn-confirm",
-                    classes=confirm_btn_class,
                 )
-                yield Button(self.cancel_label, variant="default", id="btn-cancel", classes="btn-secondary")
+                yield Button(self.cancel_label, variant="default", id="btn-cancel")
 
     @on(Button.Pressed, "#btn-confirm")
     def on_confirm_pressed(self) -> None:
@@ -109,8 +107,8 @@ class EditPlaylistModal(ModalScreen[dict[str, str] | None]):
             yield Label("", id="lbl-status", classes="stat-value red")
 
             with Horizontal(classes="modal-buttons"):
-                yield Button("Save Mapping", variant="primary", id="btn-save", classes="btn-primary")
-                yield Button("Cancel", variant="default", id="btn-cancel", classes="btn-secondary")
+                yield Button("Save Mapping", variant="primary", id="btn-save")
+                yield Button("Cancel", variant="default", id="btn-cancel")
 
     @on(Button.Pressed, "#btn-save")
     def on_save_pressed(self) -> None:
@@ -188,7 +186,7 @@ class DryRunModal(ModalScreen[None]):
                 yield DataTable(id="diff-table")
 
             with Horizontal(classes="modal-buttons"):
-                yield Button("Close Preview", variant="primary", id="btn-close", classes="btn-primary")
+                yield Button("Close Preview", variant="primary", id="btn-close")
 
     def on_mount(self) -> None:
         table = self.query_one("#diff-table", DataTable)
@@ -245,13 +243,11 @@ class LiveSyncModal(ModalScreen[None]):
                     "Run in Background",
                     variant="default",
                     id="btn-sync-modal-bg",
-                    classes="btn-secondary",
                 )
                 yield Button(
                     "Close",
                     variant="primary",
                     id="btn-sync-modal-close",
-                    classes="btn-primary",
                 )
 
     def on_mount(self) -> None:

@@ -26,10 +26,8 @@ class CSVImporterTab(TabPane):
                 yield Input(value="Imported from CSV", id="csv-input-desc")
 
             with Horizontal(classes="toolbar"):
-                yield Button(
-                    "Import CSV to YouTube Music", variant="primary", id="btn-csv-start", classes="btn-primary"
-                )
-                yield Button("Clear Log", variant="default", id="btn-csv-clear", classes="btn-secondary")
+                yield Button("Import CSV to YouTube Music", variant="primary", id="btn-csv-start")
+                yield Button("Clear Log", variant="default", id="btn-csv-clear")
 
         with Vertical(classes="output-panel"):
             yield ProgressBar(total=100, show_eta=False, id="csv-progress")

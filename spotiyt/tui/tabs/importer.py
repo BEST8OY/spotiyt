@@ -40,8 +40,8 @@ class SpotifyImporterTab(TabPane):
                 yield Label("Dry Run (Export CSV only, skip YouTube Music creation)", classes="switch-label")
 
             with Horizontal(classes="toolbar"):
-                yield Button("Start Import", variant="primary", id="btn-import-start", classes="btn-primary")
-                yield Button("Clear Log", variant="default", id="btn-import-clear", classes="btn-secondary")
+                yield Button("Start Import", variant="primary", id="btn-import-start")
+                yield Button("Clear Log", variant="default", id="btn-import-clear")
 
         with Vertical(classes="output-panel"):
             yield ProgressBar(total=100, show_eta=False, id="import-progress")

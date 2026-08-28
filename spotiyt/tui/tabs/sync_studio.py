@@ -38,10 +38,10 @@ class SyncStudioTab(TabPane):
                     yield Label("Dry Run (Preview changes)", classes="switch-label")
 
             with Horizontal(classes="toolbar"):
-                yield Button("Start Sync", variant="primary", id="btn-sync-start", classes="btn-primary")
-                yield Button("Preview Dry Run", variant="default", id="btn-sync-preview", classes="btn-info")
-                yield Button("Clear Log", variant="default", id="btn-sync-clear", classes="btn-secondary")
-                yield Button("Reset Inputs", variant="default", id="btn-sync-reset", classes="btn-secondary")
+                yield Button("Start Sync", variant="primary", id="btn-sync-start")
+                yield Button("Preview Dry Run", variant="default", id="btn-sync-preview")
+                yield Button("Clear Log", variant="default", id="btn-sync-clear")
+                yield Button("Reset Inputs", variant="default", id="btn-sync-reset")
 
         with Vertical(classes="output-panel"):
             yield Label("📊 Live Telemetry & Log Console", classes="form-section-title")

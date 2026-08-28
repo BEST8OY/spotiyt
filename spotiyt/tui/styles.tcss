@@ -1,4 +1,4 @@
-/* SpotiYT Responsive Theme & Stylesheet */
+/* SpotiYT - Fully Aligned with Textual Source Architecture */
 
 * {
     scrollbar-color: #1DB954 #242424;
@@ -12,6 +12,8 @@ Screen {
     overflow: hidden hidden;
     scrollbar-size-horizontal: 0;
 }
+
+/* ==================== Header ==================== */
 
 Header {
     dock: top;
@@ -34,6 +36,11 @@ HeaderClock {
     text-style: bold;
 }
 
+HeaderIcon {
+    color: #1DB954;
+}
+
+/* ==================== Footer ==================== */
 
 Footer {
     dock: bottom;
@@ -60,9 +67,9 @@ ContentSwitcher {
 }
 
 Tabs {
+    width: 100%;
+    height: 2;
     background: #141414;
-    height: 3;
-    border-bottom: solid #282828;
     padding: 0;
     scrollbar-size-horizontal: 0;
 }
@@ -74,33 +81,22 @@ Tabs > #tabs-scroll {
     scrollbar-size-vertical: 0;
 }
 
-Tabs > #tabs-scroll > #tabs-list-bar {
+Tabs > #tabs-scroll > #tabs-list-bar,
+Tabs > #tabs-scroll > #tabs-list-bar > #tabs-list {
     width: auto;
     height: auto;
     min-width: 100%;
     overflow: hidden hidden;
 }
 
-
-Tabs > #tabs-scroll > #tabs-list-bar > #tabs-list {
-    width: auto;
-    height: auto;
-    overflow: hidden hidden;
-}
-
-Tabs:focus {
-    border-bottom: solid #1DB954;
-}
-
 Tab {
-    padding: 0 2;
+    width: auto;
+    height: 1;
+    padding: 0 1;
+    text-align: center;
     color: #888888;
     background: transparent;
     text-style: bold;
-    height: 2;
-    content-align: center middle;
-    text-align: center;
-    border: none;
 }
 
 Tab:hover {
@@ -115,25 +111,23 @@ Tab:focus {
 
 Tab.-active {
     color: #1DB954;
-    background: #202020;
     text-style: bold;
-    content-align: center middle;
-    text-align: center;
-}
-
-Tab.-active:focus {
-    color: #1ed760;
-    background: #252525;
 }
 
 Tabs:focus Tab.-active {
-    color: #1ed760;
-    background: #252525;
+    color: #000000;
+    background: #1DB954;
+    text-style: bold;
 }
 
 Underline {
-    background: #1DB954;
+    width: 1fr;
     height: 1;
+}
+
+Underline > .underline--bar {
+    color: #1DB954;
+    background: #282828;
 }
 
 TabPane {
@@ -141,17 +135,10 @@ TabPane {
     height: 1fr;
     overflow-x: hidden;
     overflow-y: auto;
+    scrollbar-size-horizontal: 0;
 }
 
-/* ==================== Dashboard Layout ==================== */
-
-.sync-options-bar {
-    height: auto;
-    background: #1a1a1a;
-    border: round #2a2a2a;
-    padding: 0 1;
-    margin-bottom: 1;
-}
+/* ==================== DataTable ==================== */
 
 .table-container {
     height: 1fr;
@@ -166,6 +153,8 @@ TabPane {
 DataTable {
     height: 1fr;
     background: #181818;
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 1;
 }
 
 DataTable > .datatable--header {
@@ -180,7 +169,11 @@ DataTable > .datatable--cursor {
     text-style: bold;
 }
 
-/* ==================== Toolbars & Buttons ==================== */
+DataTable > .datatable--hover {
+    background: #202020;
+}
+
+/* ==================== Buttons & Variants ==================== */
 
 .toolbar {
     height: auto;
@@ -205,52 +198,43 @@ Button:focus {
     border: tall #00d2ff;
 }
 
-.btn-primary {
+Button.-primary {
     background: #1DB954;
     color: #000000;
 }
 
-.btn-primary:hover {
+Button.-primary:hover {
     background: #1ed760;
 }
 
-.btn-danger {
+Button.-error {
     background: #FF0000;
     color: #ffffff;
 }
 
-.btn-danger:hover {
+Button.-error:hover {
     background: #ff3333;
 }
 
-.btn-secondary {
+Button.-default {
     background: #2a2a2a;
     color: #e0e0e0;
 }
 
-.btn-secondary:hover {
+Button.-default:hover {
     background: #3a3a3a;
 }
 
-.btn-info {
-    background: #0284c7;
-    color: #ffffff;
-}
-
-.btn-info:hover {
-    background: #0369a1;
-}
-
-.btn-warning {
+Button.-warning {
     background: #d97706;
     color: #000000;
 }
 
-.btn-warning:hover {
+Button.-warning:hover {
     background: #b45309;
 }
 
-/* ==================== Forms & Inputs ==================== */
+/* ==================== Inputs & Select ==================== */
 
 .form-section-title {
     color: #1DB954;
@@ -331,14 +315,28 @@ SelectOverlay OptionList {
     color: #e0e0e0;
 }
 
+/* ==================== Switch ==================== */
+
 Switch {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin: 0;
     min-width: 6;
 }
 
-Switch.-on {
-    background: #1DB954;
+Switch .switch--slider {
+    color: #555555;
+    background: #222222;
+}
+
+Switch.-on .switch--slider {
+    color: #1DB954;
+}
+
+.sync-options-bar {
+    height: auto;
+    background: #1a1a1a;
+    border: round #2a2a2a;
+    padding: 0 1;
+    margin-bottom: 1;
 }
 
 .switch-group {
@@ -383,6 +381,8 @@ RichLog {
     color: #e0e0e0;
     padding: 0 1;
     overflow: auto auto;
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 1;
 }
 
 ProgressBar {
@@ -494,10 +494,6 @@ ModalScreen {
     grid-size: 2;
     grid-gutter: 1;
     margin-top: 1;
-}
-
-.modal-buttons Button {
-    width: 100%;
 }
 
 .modal-large {

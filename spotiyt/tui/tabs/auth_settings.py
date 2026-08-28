@@ -24,7 +24,6 @@ class AuthSettingsTab(TabPane):
                     "Generate auth.json from cookies",
                     variant="primary",
                     id="btn-auth-generate",
-                    classes="btn-primary",
                 )
 
             with Vertical(classes="auth-card"):
@@ -32,7 +31,7 @@ class AuthSettingsTab(TabPane):
                 yield Static("Stores 'sp_dc' cookie for private/algorithmic Spotify playlists.", classes="auth-desc")
                 yield Label("", id="lbl-spotify-sp-dc-status")
                 yield Input(placeholder="Paste sp_dc cookie string here...", password=True, id="input-sp-dc-cookie")
-                yield Button("Save sp_dc Cookie", variant="default", id="btn-save-sp-dc", classes="btn-secondary")
+                yield Button("Save sp_dc Cookie", variant="default", id="btn-save-sp-dc")
 
         with ScrollableContainer(classes="guide-box"):
             yield Label("Quick Setup Guide & Instructions", classes="auth-title")
