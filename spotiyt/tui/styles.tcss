@@ -1,8 +1,6 @@
 /* SpotiYT Responsive Theme & Stylesheet */
 
 * {
-    scrollbar-size-horizontal: 1;
-    scrollbar-size-vertical: 1;
     scrollbar-color: #1DB954 #242424;
     scrollbar-color-hover: #1ed760 #333333;
     scrollbar-color-active: #00d2ff #444444;
@@ -11,8 +9,8 @@
 Screen {
     background: #121212;
     color: #e0e0e0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden hidden;
+    scrollbar-size-horizontal: 0;
 }
 
 Header {
@@ -22,6 +20,8 @@ Header {
     color: #1DB954;
     text-style: bold;
     border-bottom: solid #1DB954;
+    overflow: hidden hidden;
+    scrollbar-size-horizontal: 0;
 }
 
 Footer {
@@ -29,6 +29,9 @@ Footer {
     height: 1;
     background: #181818;
     color: #888888;
+    overflow: hidden hidden;
+    scrollbar-size-horizontal: 0;
+    scrollbar-size-vertical: 0;
 }
 
 /* ==================== Navigation Tabs ==================== */
@@ -36,6 +39,13 @@ Footer {
 TabbedContent {
     height: 1fr;
     overflow: hidden hidden;
+    scrollbar-size-horizontal: 0;
+}
+
+ContentSwitcher {
+    height: 1fr;
+    overflow: hidden hidden;
+    scrollbar-size-horizontal: 0;
 }
 
 Tabs {
@@ -43,12 +53,14 @@ Tabs {
     height: 3;
     border-bottom: solid #282828;
     padding: 0;
+    scrollbar-size-horizontal: 0;
 }
 
 Tabs > #tabs-scroll {
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-size-horizontal: 0;
+    scrollbar-size-vertical: 0;
 }
 
 Tabs > #tabs-scroll > #tabs-list-bar {
@@ -57,6 +69,7 @@ Tabs > #tabs-scroll > #tabs-list-bar {
     min-width: 100%;
     overflow: hidden hidden;
 }
+
 
 Tabs > #tabs-scroll > #tabs-list-bar > #tabs-list {
     width: auto;
