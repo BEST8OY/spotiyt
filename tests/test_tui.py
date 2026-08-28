@@ -7,7 +7,6 @@ from textual.widgets import (
     Button,
     DataTable,
     Input,
-    Label,
     RichLog,
     Select,
     Switch,
@@ -61,9 +60,6 @@ async def test_dashboard_renders_registry():
 
             table = app.query_one("#table-playlists", DataTable)
             assert table.row_count == 2
-
-            stat_count = app.query_one("#stat-playlists-count", Label)
-            assert str(stat_count.render()) == "2"
 
             # Verify dropdown options populated
             sync_select = app.query_one("#sync-select-playlist", Select)

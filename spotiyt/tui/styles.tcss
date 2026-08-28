@@ -40,47 +40,45 @@ Tabs:focus {
 
 Tab {
     padding: 0 2;
-    color: #aaaaaa;
-    background: #1e1e1e;
+    color: #888888;
+    background: #181818;
     text-style: bold;
-    border-top: round #2e2e2e;
-    border-left: round #2e2e2e;
-    border-right: round #2e2e2e;
-    margin-right: 1;
-    min-width: 6;
+    height: 3;
+    border: none;
 }
 
 Tab:hover {
     color: #ffffff;
-    background: #2a2a2a;
+    background: #242424;
 }
 
 Tab:focus {
     color: #ffffff;
-    background: #333333;
+    background: #282828;
 }
 
 Tab.-active {
-    color: #000000;
-    background: #1DB954;
+    color: #1DB954;
+    background: #222222;
     text-style: bold;
-    border-top: round #1ed760;
-    border-left: round #1ed760;
-    border-right: round #1ed760;
+    border-bottom: tall #1DB954;
 }
 
 Tab.-active:focus {
-    color: #000000;
-    background: #1ed760;
+    color: #1ed760;
+    background: #242424;
+    border-bottom: tall #1ed760;
 }
 
 Tabs:focus Tab.-active {
-    color: #000000;
-    background: #1DB954;
+    color: #1DB954;
+    background: #222222;
+    border-bottom: tall #1DB954;
 }
 
 Underline {
-    display: none;
+    background: #1DB954;
+    height: 1;
 }
 
 TabPane {

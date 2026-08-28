@@ -75,20 +75,6 @@ class SpotiYTApp(App[None]):
         with TabbedContent(initial="tab-dashboard", id="main-tabs"):
             # Tab 1: Dashboard
             with TabPane("Dashboard", id="tab-dashboard"):
-                with Horizontal(classes="stats-container"):
-                    with Container(classes="stat-card"):
-                        yield Label("Registered Playlists", classes="stat-title")
-                        yield Label("0", id="stat-playlists-count", classes="stat-value")
-                    with Container(classes="stat-card"):
-                        yield Label("YTM Auth Status", classes="stat-title")
-                        yield Label("Checking...", id="stat-ytm-auth", classes="stat-value")
-                    with Container(classes="stat-card"):
-                        yield Label("Spotify Auth (sp_dc)", classes="stat-title")
-                        yield Label("Checking...", id="stat-sp-auth", classes="stat-value")
-                    with Container(classes="stat-card"):
-                        yield Label("Saved CSV Exports", classes="stat-title")
-                        yield Label("0 files", id="stat-exports-count", classes="stat-value")
-
                 with Container(classes="table-container"):
                     yield DataTable(id="table-playlists")
 
@@ -285,31 +271,17 @@ class SpotiYTApp(App[None]):
             table.add_row(str(idx), name, sid, ytid, key=sid)
             select_options.append((f"{name} ({sid[:10]}...)", sid))
 
-        # Update stats
-        self.query_one("#stat-playlists-count", Label).update(str(len(data)))
-
-        # Update exports count
-        if EXPORTS_DIR.exists():
-            csv_count = len(list(EXPORTS_DIR.glob("*.csv")))
-            self.query_one("#stat-exports-count", Label).update(f"{csv_count} CSV files")
-        else:
-            self.query_one("#stat-exports-count", Label).update("0 files")
-
         # Update Sync Select dropdown
         sync_select = self.query_one("#sync-select-playlist", Select)
         sync_select.set_options(select_options)
 
     def refresh_auth_status(self) -> None:
-        # YouTube Music Auth status
-        ytm_stat = self.query_one("#stat-ytm-auth", Label)
         lbl_cookies = self.query_one("#lbl-ytm-cookies-status", Label)
         lbl_auth = self.query_one("#lbl-ytm-auth-status", Label)
 
         if AUTH_JSON.exists():
-            ytm_stat.update("[bold green]Ready (auth.json)[/bold green]")
             lbl_auth.update(f"✔ auth.json: [green]Found ({AUTH_JSON.name})[/green]")
         else:
-            ytm_stat.update("[bold red]Missing auth.json[/bold red]")
             lbl_auth.update("✖ auth.json: [red]Missing - Click generate below[/red]")
 
         if COOKIES_JSON.exists():
@@ -317,15 +289,11 @@ class SpotiYTApp(App[None]):
         else:
             lbl_cookies.update(f"✖ ytm-cookies.json: [yellow]Missing ({COOKIES_JSON.name})[/yellow]")
 
-        # Spotify Auth status
-        sp_stat = self.query_one("#stat-sp-auth", Label)
         lbl_sp_dc = self.query_one("#lbl-spotify-sp-dc-status", Label)
 
         if SP_DC_FILE.exists() and SP_DC_FILE.read_text().strip():
-            sp_stat.update("[bold green]Configured[/bold green]")
             lbl_sp_dc.update("✔ sp_dc: [green]Configured[/green]")
         else:
-            sp_stat.update("[bold yellow]Not Set (Public Only)[/bold yellow]")
             lbl_sp_dc.update("ℹ sp_dc: [yellow]Not Set (Public playlists work fine)[/yellow]")
 
     # ==================== Dashboard Handlers ====================
