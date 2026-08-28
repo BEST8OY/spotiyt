@@ -231,6 +231,7 @@ class LiveSyncModal(ModalScreen[None]):
         self.dialog_title = title
         self.initial_subtitle = subtitle
         self.is_finished = False
+        self.is_dismissed = False
 
     def compose(self) -> ComposeResult:
         with Container(classes="modal-sync modal-large"):
@@ -251,39 +252,58 @@ class LiveSyncModal(ModalScreen[None]):
                 )
 
     def on_mount(self) -> None:
-        close_btn = self.query_one("#btn-sync-modal-close", Button)
-        close_btn.display = False
+        try:
+            close_btn = self.query_one("#btn-sync-modal-close", Button)
+            close_btn.display = False
+        except Exception:
+            pass
+
+    def on_unmount(self) -> None:
+        self.is_dismissed = True
+
+    def dismiss(self, result: Any = None) -> None:
+        self.is_dismissed = True
+        super().dismiss(result)
 
     def write_log(self, text: str) -> None:
-        if self.is_mounted:
-            log_widget = self.query_one("#sync-modal-log", RichLog)
-            log_widget.write(text)
+        if not self.is_dismissed and self.is_mounted:
+            try:
+                log_widget = self.query_one("#sync-modal-log", RichLog)
+                log_widget.write(text)
+            except Exception:
+                pass
 
     def update_progress(self, current: int, total: int, description: str = "") -> None:
-        if self.is_mounted:
-            if total > 0:
-                bar = self.query_one("#sync-modal-progress", ProgressBar)
-                bar.update(total=total, progress=current)
-            if description:
-                lbl = self.query_one("#sync-modal-status", Label)
-                lbl.update(description)
+        if not self.is_dismissed and self.is_mounted:
+            try:
+                if total > 0:
+                    bar = self.query_one("#sync-modal-progress", ProgressBar)
+                    bar.update(total=total, progress=current)
+                if description:
+                    lbl = self.query_one("#sync-modal-status", Label)
+                    lbl.update(description)
+            except Exception:
+                pass
 
     def set_complete(self, summary_msg: str, is_success: bool = True) -> None:
         self.is_finished = True
-        if self.is_mounted:
-            lbl = self.query_one("#sync-modal-status", Label)
-            color = "green" if is_success else "red"
-            lbl.update(f"[bold {color}]{summary_msg}[/bold {color}]")
+        if not self.is_dismissed and self.is_mounted:
+            try:
+                lbl = self.query_one("#sync-modal-status", Label)
+                color = "green" if is_success else "red"
+                lbl.update(f"[bold {color}]{summary_msg}[/bold {color}]")
 
-            bar = self.query_one("#sync-modal-progress", ProgressBar)
-            bar.update(total=100, progress=100)
+                bar = self.query_one("#sync-modal-progress", ProgressBar)
+                bar.update(total=100, progress=100)
 
-            bg_btn = self.query_one("#btn-sync-modal-bg", Button)
-            bg_btn.display = False
+                bg_btn = self.query_one("#btn-sync-modal-bg", Button)
+                bg_btn.display = False
 
-            close_btn = self.query_one("#btn-sync-modal-close", Button)
-            close_btn.display = True
-            close_btn.focus()
+                close_btn = self.query_one("#btn-sync-modal-close", Button)
+                close_btn.display = True
+                close_btn.focus()
+            except Exception:
+                pass
 
     @on(Button.Pressed, "#btn-sync-modal-bg")
     def on_bg_pressed(self) -> None:

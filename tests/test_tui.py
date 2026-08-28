@@ -400,3 +400,22 @@ async def test_live_sync_modal_flow():
         assert close_btn.display is True
         close_btn.press()
         await pilot.pause()
+
+
+async def test_live_sync_modal_run_in_background():
+    app = SpotiYTApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        modal = LiveSyncModal(title="Syncing: Background Test", subtitle="Starting...")
+        app.push_screen(modal)
+        await pilot.pause()
+
+        # Click Run in Background button
+        bg_btn = modal.query_one("#btn-sync-modal-bg", Button)
+        bg_btn.press()
+        await pilot.pause()
+
+        # Write logs and progress after modal is dismissed (must not crash)
+        modal.write_log("ℹ Step 2: Post-dismissal log")
+        modal.update_progress(80, 100, "Matching...")
+        modal.set_complete("Sync completed in background!", is_success=True)
+        await pilot.pause()
