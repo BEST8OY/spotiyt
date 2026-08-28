@@ -319,23 +319,11 @@ class SpotiYTApp(App[None]):
     def on_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key and event.row_key.value:
             self.selected_spotify_id = str(event.row_key.value)
-            self._update_selected_playlist_inputs()
 
     @on(DataTable.RowHighlighted, "#table-playlists")
     def on_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key and event.row_key.value:
             self.selected_spotify_id = str(event.row_key.value)
-            self._update_selected_playlist_inputs()
-
-    def _update_selected_playlist_inputs(self) -> None:
-        if not self.selected_spotify_id:
-            return
-        data = load_registry()
-        if self.selected_spotify_id in data:
-            info = data[self.selected_spotify_id]
-            self.query_one("#sync-input-spotify-id", Input).value = self.selected_spotify_id
-            self.query_one("#sync-input-ytmusic-id", Input).value = info.get("ytmusic_id", "")
-            self.query_one("#sync-select-playlist", Select).value = self.selected_spotify_id
 
     def _ensure_selected_spotify_id(self) -> str | None:
         if self.selected_spotify_id:
@@ -346,7 +334,6 @@ class SpotiYTApp(App[None]):
                 row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
                 if row_key and row_key.value:
                     self.selected_spotify_id = str(row_key.value)
-                    self._update_selected_playlist_inputs()
                     return self.selected_spotify_id
             except Exception:
                 pass
@@ -658,8 +645,6 @@ class SpotiYTApp(App[None]):
         if self.is_busy:
             self.notify("Another task is currently running. Please wait.", title="Busy", severity="warning")
             return
-        self.query_one("#sync-input-spotify-id", Input).value = sid
-        self.query_one("#sync-input-ytmusic-id", Input).value = ytid
 
         live_modal: LiveSyncModal | None = None
         if show_live_modal:
