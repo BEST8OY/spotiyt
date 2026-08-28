@@ -247,3 +247,37 @@ async def test_dry_run_modal_render():
 
         modal.query_one("#btn-close", Button).press()
         await pilot.pause()
+
+
+async def test_small_screen_termux_compatibility():
+    """Test that SpotiYTApp runs smoothly on compact Termux-sized screens (e.g. 50x22)."""
+    sample_registry = {
+        "37i9dQZF1E8MCNiiTgwMk8": {
+            "name": "Discover Weekly",
+            "ytmusic_id": "PL_sample_ytm_1",
+        }
+    }
+
+    with patch("spotiyt.tui.app.load_registry", return_value=sample_registry):
+        app = SpotiYTApp()
+        async with app.run_test(size=(50, 22)) as pilot:
+            # Mounts without crash on mobile dimensions
+            app.refresh_dashboard()
+            await pilot.pause()
+
+            # Dashboard rendered
+            table = app.query_one("#table-playlists", DataTable)
+            assert table.row_count == 1
+
+            # Switch through tabs smoothly on small screen
+            await pilot.press("2")
+            assert app.query_one("#main-tabs", TabbedContent).active == "tab-sync"
+
+            await pilot.press("3")
+            assert app.query_one("#main-tabs", TabbedContent).active == "tab-import"
+
+            await pilot.press("4")
+            assert app.query_one("#main-tabs", TabbedContent).active == "tab-csv"
+
+            await pilot.press("5")
+            assert app.query_one("#main-tabs", TabbedContent).active == "tab-auth"

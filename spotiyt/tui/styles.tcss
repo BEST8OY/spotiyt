@@ -1,13 +1,14 @@
-/* SpotiYT Modern Textual Stylesheet */
+/* SpotiYT Termux-Friendly Responsive Stylesheet */
 
 Screen {
     background: #121212;
     color: #e0e0e0;
+    overflow-y: auto;
 }
 
 Header {
     dock: top;
-    height: 3;
+    height: 1;
     background: #181818;
     color: #1DB954;
     text-style: bold;
@@ -33,9 +34,10 @@ Tabs {
 }
 
 Tab {
-    padding: 0 2;
+    padding: 0 1;
     color: #aaaaaa;
     text-style: bold;
+    min-width: 6;
 }
 
 Tab:hover {
@@ -50,8 +52,9 @@ Tab.-active {
 }
 
 TabPane {
-    padding: 1 2;
+    padding: 0 1;
     height: 1fr;
+    overflow-y: auto;
 }
 
 /* Dashboard Styles */
@@ -62,8 +65,9 @@ TabPane {
 }
 
 .stat-card {
-    height: 4;
+    height: 3;
     width: 1fr;
+    min-width: 8;
     background: #1e1e1e;
     border: round #333333;
     padding: 0 1;
@@ -101,10 +105,12 @@ TabPane {
 
 .table-container {
     height: 1fr;
+    min-height: 8;
     background: #181818;
     border: round #2a2a2a;
     padding: 0;
     margin-bottom: 1;
+    overflow-y: auto;
 }
 
 DataTable {
@@ -124,20 +130,33 @@ DataTable > .datatable--cursor {
     text-style: bold;
 }
 
-/* Button & Toolbars */
+/* Responsive Button Grids & Toolbars */
 .toolbar {
     height: auto;
-    layout: horizontal;
-    align-horizontal: left;
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1;
     margin-top: 1;
+    margin-bottom: 1;
+}
+
+.toolbar-3col {
+    height: auto;
+    layout: grid;
+    grid-size: 3;
+    grid-gutter: 1;
+    margin-top: 1;
+    margin-bottom: 1;
 }
 
 Button {
-    min-width: 14;
+    width: 100%;
+    min-width: 6;
     height: 3;
-    margin-right: 1;
+    margin: 0;
     border: none;
     text-style: bold;
+    text-align: center;
 }
 
 Button:focus {
@@ -189,30 +208,32 @@ Button:focus {
     background: #b45309;
 }
 
-/* Form Styles */
+/* Responsive Form Styles */
 .form-panel {
     background: #1e1e1e;
     border: round #333333;
-    padding: 1 2;
+    padding: 1;
     height: auto;
     margin-bottom: 1;
+    overflow-y: auto;
 }
 
 .form-row {
     height: auto;
-    layout: horizontal;
-    align-vertical: middle;
+    layout: vertical;
     margin-bottom: 1;
 }
 
 .form-label {
-    width: 28;
-    color: #aaaaaa;
+    width: 100%;
+    color: #1DB954;
     text-style: bold;
-    padding-top: 1;
+    margin-bottom: 0;
+    padding: 0;
 }
 
 Input {
+    width: 100%;
     height: 3;
     border: round #444444;
     background: #121212;
@@ -225,6 +246,7 @@ Input:focus {
 }
 
 Select {
+    width: 100%;
     height: 3;
     border: round #444444;
     background: #121212;
@@ -238,14 +260,22 @@ Select:focus {
 Switch {
     margin-top: 0;
     margin-bottom: 0;
+    min-width: 6;
 }
 
 Switch.-on {
     background: #1DB954;
 }
 
+.switch-group {
+    height: auto;
+    layout: vertical;
+    margin-bottom: 1;
+}
+
 .switch-row {
-    height: 3;
+    height: auto;
+    min-height: 3;
     layout: horizontal;
     align-vertical: middle;
     margin-bottom: 1;
@@ -254,6 +284,7 @@ Switch.-on {
 .switch-label {
     color: #e0e0e0;
     margin-left: 1;
+    width: 1fr;
 }
 
 /* Log & Output Panel */
@@ -261,11 +292,14 @@ Switch.-on {
     background: #181818;
     border: round #2a2a2a;
     height: 1fr;
+    min-height: 8;
     padding: 1;
+    overflow-y: auto;
 }
 
 RichLog {
     height: 1fr;
+    min-height: 6;
     background: #121212;
     border: round #222222;
     color: #cccccc;
@@ -284,9 +318,7 @@ ProgressBar > .bar--complete {
 
 /* Auth / Settings Card */
 .auth-grid {
-    layout: grid;
-    grid-size: 2;
-    grid-gutter: 1;
+    layout: vertical;
     height: auto;
     margin-bottom: 1;
 }
@@ -294,14 +326,15 @@ ProgressBar > .bar--complete {
 .auth-card {
     background: #1e1e1e;
     border: round #333333;
-    padding: 1 2;
+    padding: 1;
     height: auto;
+    margin-bottom: 1;
 }
 
 .auth-title {
     color: #1DB954;
     text-style: bold;
-    margin-bottom: 1;
+    margin-bottom: 0;
 }
 
 .auth-desc {
@@ -312,23 +345,28 @@ ProgressBar > .bar--complete {
 .guide-box {
     background: #181818;
     border: round #2a2a2a;
-    padding: 1 2;
-    height: 1fr;
+    padding: 1;
+    height: auto;
+    min-height: 8;
     color: #cccccc;
+    overflow-y: auto;
 }
 
-/* Modal Dialogs */
+/* Responsive Modal Dialogs */
 ModalScreen {
     align: center middle;
     background: rgba(0, 0, 0, 0.7);
 }
 
 .modal-dialog {
-    width: 65;
+    width: 95%;
+    max-width: 58;
     height: auto;
+    max-height: 90%;
     background: #1e1e1e;
     border: round #1DB954;
-    padding: 1 2;
+    padding: 1;
+    overflow-y: auto;
 }
 
 .modal-title {
@@ -345,15 +383,24 @@ ModalScreen {
 }
 
 .modal-buttons {
-    layout: horizontal;
-    align-horizontal: center;
+    height: auto;
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1;
     margin-top: 1;
 }
 
+.modal-buttons Button {
+    width: 100%;
+}
+
 .modal-large {
-    width: 85;
-    height: 30;
+    width: 96%;
+    max-width: 78;
+    height: 90%;
+    max-height: 32;
     background: #1e1e1e;
     border: round #00d2ff;
-    padding: 1 2;
+    padding: 1;
+    overflow-y: auto;
 }

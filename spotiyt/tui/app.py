@@ -117,7 +117,7 @@ class SpotiYTApp(App[None]):
                         yield Label("YouTube Music Playlist ID:", classes="form-label")
                         yield Input(placeholder="e.g. PLrAl5G2L...", id="sync-input-ytmusic-id")
 
-                    with Horizontal(classes="form-row"):
+                    with Vertical(classes="switch-group"):
                         with Horizontal(classes="switch-row"):
                             yield Switch(value=False, id="sync-switch-preserve")
                             yield Label("Preserve extra YouTube tracks", classes="switch-label")
@@ -201,7 +201,7 @@ class SpotiYTApp(App[None]):
 
             # Tab 5: Auth & Settings
             with TabPane("Auth & Settings", id="tab-auth"):
-                with Horizontal(classes="auth-grid"):
+                with Vertical(classes="auth-grid"):
                     with Vertical(classes="auth-card"):
                         yield Label("YouTube Music Auth", classes="auth-title")
                         yield Static("Manages credentials for YouTube Music API.", classes="auth-desc")
