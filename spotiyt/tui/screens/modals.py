@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -51,11 +52,13 @@ class ConfirmModal(ModalScreen[bool]):
                 )
                 yield Button(self.cancel_label, variant="default", id="btn-cancel", classes="btn-secondary")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-confirm":
-            self.dismiss(True)
-        else:
-            self.dismiss(False)
+    @on(Button.Pressed, "#btn-confirm")
+    def on_confirm_pressed(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#btn-cancel")
+    def on_cancel_pressed(self) -> None:
+        self.dismiss(False)
 
     def action_confirm(self) -> None:
         self.dismiss(True)
@@ -109,35 +112,37 @@ class EditPlaylistModal(ModalScreen[dict[str, str] | None]):
                 yield Button("Save Mapping", variant="primary", id="btn-save", classes="btn-primary")
                 yield Button("Cancel", variant="default", id="btn-cancel", classes="btn-secondary")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-save":
-            name = self.query_one("#input-name", Input).value.strip()
-            raw_sid = self.query_one("#input-spotify-id", Input).value.strip()
-            ytid = self.query_one("#input-ytmusic-id", Input).value.strip()
-            status_lbl = self.query_one("#lbl-status", Label)
+    @on(Button.Pressed, "#btn-save")
+    def on_save_pressed(self) -> None:
+        name = self.query_one("#input-name", Input).value.strip()
+        raw_sid = self.query_one("#input-spotify-id", Input).value.strip()
+        ytid = self.query_one("#input-ytmusic-id", Input).value.strip()
+        status_lbl = self.query_one("#lbl-status", Label)
 
-            if not name:
-                status_lbl.update("Playlist name cannot be empty.")
-                return
+        if not name:
+            status_lbl.update("Playlist name cannot be empty.")
+            return
 
-            sid = extract_spotify_id(raw_sid)
-            if not sid:
-                status_lbl.update("Invalid Spotify Playlist URL or ID.")
-                return
+        sid = extract_spotify_id(raw_sid)
+        if not sid:
+            status_lbl.update("Invalid Spotify Playlist URL or ID.")
+            return
 
-            if not ytid:
-                status_lbl.update("YouTube Music playlist ID cannot be empty.")
-                return
+        if not ytid:
+            status_lbl.update("YouTube Music playlist ID cannot be empty.")
+            return
 
-            self.dismiss(
-                {
-                    "name": name,
-                    "spotify_id": sid,
-                    "ytmusic_id": ytid,
-                }
-            )
-        else:
-            self.dismiss(None)
+        self.dismiss(
+            {
+                "name": name,
+                "spotify_id": sid,
+                "ytmusic_id": ytid,
+            }
+        )
+
+    @on(Button.Pressed, "#btn-cancel")
+    def on_cancel_pressed(self) -> None:
+        self.dismiss(None)
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -202,9 +207,9 @@ class DryRunModal(ModalScreen[None]):
         for t in not_found:
             table.add_row("[bold yellow]? NOT FOUND[/bold yellow]", t.get("name", ""), t.get("artists", ""))
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-close":
-            self.dismiss(None)
+    @on(Button.Pressed, "#btn-close")
+    def on_close_pressed(self) -> None:
+        self.dismiss(None)
 
     def action_dismiss_modal(self) -> None:
         self.dismiss(None)
@@ -250,33 +255,26 @@ class LiveSyncModal(ModalScreen[None]):
                 )
 
     def on_mount(self) -> None:
-        try:
-            close_btn = self.query_one("#btn-sync-modal-close", Button)
-            close_btn.display = False
-        except Exception:
-            pass
+        close_btn = self.query_one("#btn-sync-modal-close", Button)
+        close_btn.display = False
 
     def write_log(self, text: str) -> None:
-        try:
+        if self.is_mounted:
             log_widget = self.query_one("#sync-modal-log", RichLog)
             log_widget.write(text)
-        except Exception:
-            pass
 
     def update_progress(self, current: int, total: int, description: str = "") -> None:
-        try:
+        if self.is_mounted:
             if total > 0:
                 bar = self.query_one("#sync-modal-progress", ProgressBar)
                 bar.update(total=total, progress=current)
             if description:
                 lbl = self.query_one("#sync-modal-status", Label)
                 lbl.update(description)
-        except Exception:
-            pass
 
     def set_complete(self, summary_msg: str, is_success: bool = True) -> None:
         self.is_finished = True
-        try:
+        if self.is_mounted:
             lbl = self.query_one("#sync-modal-status", Label)
             color = "green" if is_success else "red"
             lbl.update(f"[bold {color}]{summary_msg}[/bold {color}]")
@@ -290,12 +288,14 @@ class LiveSyncModal(ModalScreen[None]):
             close_btn = self.query_one("#btn-sync-modal-close", Button)
             close_btn.display = True
             close_btn.focus()
-        except Exception:
-            pass
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id in ("btn-sync-modal-bg", "btn-sync-modal-close"):
-            self.dismiss(None)
+    @on(Button.Pressed, "#btn-sync-modal-bg")
+    def on_bg_pressed(self) -> None:
+        self.dismiss(None)
+
+    @on(Button.Pressed, "#btn-sync-modal-close")
+    def on_close_pressed(self) -> None:
+        self.dismiss(None)
 
     def action_dismiss_modal(self) -> None:
         self.dismiss(None)

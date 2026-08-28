@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from textual import events, on, work
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
@@ -53,7 +53,7 @@ from spotiyt.ytmusic import import_to_ytmusic
 
 
 class SpotiYTApp(App[None]):
-    """State-of-the-art Textual application for Spotify to YouTube Music synchronization."""
+    """Modern Textual application for Spotify to YouTube Music synchronization."""
 
     TITLE = "spotiyt"
     SUB_TITLE = "Spotify ➔ YouTube Music Sync Studio"
@@ -66,12 +66,6 @@ class SpotiYTApp(App[None]):
         Binding("3", "switch_tab('tab-import')", "Import", show=True),
         Binding("4", "switch_tab('tab-csv')", "CSV", show=True),
         Binding("5", "switch_tab('tab-auth')", "Auth", show=True),
-        Binding("comma", "scroll_left", "< Scroll", show=True),
-        Binding("full_stop", "scroll_right", "Scroll >", show=True),
-        Binding("left_bracket", "scroll_left", "Scroll Left", show=False),
-        Binding("right_bracket", "scroll_right", "Scroll Right", show=False),
-        Binding("h", "scroll_left", "Scroll Left", show=False),
-        Binding("l", "scroll_right", "Scroll Right", show=False),
         Binding("r", "refresh_all", "Refresh", show=True),
         Binding("d", "toggle_dark", "Dark Mode", show=False),
     ]
@@ -100,62 +94,6 @@ class SpotiYTApp(App[None]):
     def action_switch_tab(self, tab_id: str) -> None:
         tabs = self.query_one("#main-tabs", TabbedContent)
         tabs.active = tab_id
-
-    def _get_active_scroll_target(self):
-        focused = self.focused
-        if focused and hasattr(focused, "scroll_relative") and not isinstance(focused, App):
-            return focused
-        try:
-            tabs = self.query_one("#main-tabs", TabbedContent)
-            active_id = tabs.active
-            if active_id == "tab-dashboard":
-                return self.query_one("#table-playlists", DataTable)
-            elif active_id == "tab-sync":
-                return self.query_one("#sync-log", RichLog)
-            elif active_id == "tab-import":
-                return self.query_one("#import-log", RichLog)
-            elif active_id == "tab-csv":
-                return self.query_one("#csv-log", RichLog)
-            elif active_id == "tab-auth":
-                return self.query_one(".guide-box")
-        except Exception:
-            pass
-        try:
-            return self.query_one("Tabs #tabs-scroll")
-        except Exception:
-            return None
-
-    def action_scroll_left(self) -> None:
-        """Scroll focused container, table, log, or tabs horizontally left."""
-        target = self._get_active_scroll_target()
-        if target and hasattr(target, "scroll_relative"):
-            target.scroll_relative(x=-15, animate=False)
-
-    def action_scroll_right(self) -> None:
-        """Scroll focused container, table, log, or tabs horizontally right."""
-        target = self._get_active_scroll_target()
-        if target and hasattr(target, "scroll_relative"):
-            target.scroll_relative(x=15, animate=False)
-
-    @on(events.MouseScrollDown, "Tabs")
-    @on(events.MouseScrollRight, "Tabs")
-    def on_tabs_scroll_right(self, event: events.MouseEvent) -> None:
-        try:
-            scroll = self.query_one("Tabs #tabs-scroll")
-            scroll.scroll_relative(x=6, animate=False)
-            event.stop()
-        except Exception:
-            pass
-
-    @on(events.MouseScrollUp, "Tabs")
-    @on(events.MouseScrollLeft, "Tabs")
-    def on_tabs_scroll_left(self, event: events.MouseEvent) -> None:
-        try:
-            scroll = self.query_one("Tabs #tabs-scroll")
-            scroll.scroll_relative(x=-6, animate=False)
-            event.stop()
-        except Exception:
-            pass
 
     def action_refresh_all(self) -> None:
         self.refresh_all()
@@ -190,7 +128,6 @@ class SpotiYTApp(App[None]):
             table.add_row(str(idx), name, sid, ytid, status, key=sid)
             select_options.append((f"{name} ({sid[:10]}...)", sid))
 
-        # Update Sync Select dropdown
         sync_select = self.query_one("#sync-select-playlist", Select)
         sync_select.set_options(select_options)
 

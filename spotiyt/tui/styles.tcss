@@ -1,9 +1,18 @@
-/* SpotiYT Termux-Friendly Responsive Stylesheet */
+/* SpotiYT Responsive Theme & Stylesheet */
+
+* {
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-color: #1DB954 #242424;
+    scrollbar-color-hover: #1ed760 #333333;
+    scrollbar-color-active: #00d2ff #444444;
+}
 
 Screen {
     background: #121212;
     color: #e0e0e0;
-    overflow: auto auto;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 Header {
@@ -22,10 +31,11 @@ Footer {
     color: #888888;
 }
 
-/* Tabs */
+/* ==================== Navigation Tabs ==================== */
+
 TabbedContent {
     height: 1fr;
-    overflow: auto auto;
+    overflow: hidden hidden;
 }
 
 Tabs {
@@ -38,7 +48,7 @@ Tabs {
 Tabs > #tabs-scroll {
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-size-horizontal: 1;
+    scrollbar-size-horizontal: 0;
 }
 
 Tabs > #tabs-scroll > #tabs-list-bar {
@@ -68,7 +78,6 @@ Tab {
     text-align: center;
     border: none;
 }
-
 
 Tab:hover {
     color: #ffffff;
@@ -103,18 +112,14 @@ Underline {
     height: 1;
 }
 
-.form-section-title {
-    color: #1DB954;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-
 TabPane {
     padding: 0 1;
     height: 1fr;
-    overflow: auto auto;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
+
+/* ==================== Dashboard Layout ==================== */
 
 .sync-options-bar {
     height: auto;
@@ -124,52 +129,6 @@ TabPane {
     margin-bottom: 1;
 }
 
-/* Dashboard Styles */
-.stats-container {
-    height: auto;
-    margin-bottom: 1;
-    layout: horizontal;
-}
-
-.stat-card {
-    height: 3;
-    width: 1fr;
-    min-width: 8;
-    background: #1e1e1e;
-    border: round #333333;
-    padding: 0 1;
-    margin-right: 1;
-    align: center middle;
-}
-
-.stat-card:last-of-type {
-    margin-right: 0;
-}
-
-.stat-title {
-    color: #888888;
-    text-style: bold;
-    text-align: center;
-}
-
-.stat-value {
-    color: #00d2ff;
-    text-style: bold;
-    text-align: center;
-}
-
-.stat-value.green {
-    color: #1DB954;
-}
-
-.stat-value.red {
-    color: #ff4d4d;
-}
-
-.stat-value.yellow {
-    color: #f59e0b;
-}
-
 .table-container {
     height: 1fr;
     min-height: 8;
@@ -177,14 +136,13 @@ TabPane {
     border: round #2a2a2a;
     padding: 0;
     margin-bottom: 1;
-    overflow: auto auto;
+    overflow: hidden hidden;
 }
 
 DataTable {
     height: 1fr;
     background: #181818;
 }
-
 
 DataTable > .datatable--header {
     background: #242424;
@@ -198,20 +156,12 @@ DataTable > .datatable--cursor {
     text-style: bold;
 }
 
-/* Responsive Button Grids & Toolbars */
+/* ==================== Toolbars & Buttons ==================== */
+
 .toolbar {
     height: auto;
     layout: grid;
     grid-size: 2;
-    grid-gutter: 1;
-    margin-top: 1;
-    margin-bottom: 1;
-}
-
-.toolbar-3col {
-    height: auto;
-    layout: grid;
-    grid-size: 3;
     grid-gutter: 1;
     margin-top: 1;
     margin-bottom: 1;
@@ -276,15 +226,14 @@ Button:focus {
     background: #b45309;
 }
 
-* {
-    scrollbar-size-horizontal: 1;
-    scrollbar-size-vertical: 1;
-    scrollbar-color: #1DB954 #242424;
-    scrollbar-color-hover: #1ed760 #333333;
-    scrollbar-color-active: #00d2ff #444444;
+/* ==================== Forms & Inputs ==================== */
+
+.form-section-title {
+    color: #1DB954;
+    text-style: bold;
+    margin-bottom: 1;
 }
 
-/* Responsive Form Styles */
 .form-panel {
     background: #1e1e1e;
     border: round #333333;
@@ -388,7 +337,8 @@ Switch.-on {
     width: 1fr;
 }
 
-/* Large & Generous Log / Output Panel */
+/* ==================== Output Panels & RichLog ==================== */
+
 .output-panel {
     background: #181818;
     border: round #2a2a2a;
@@ -445,7 +395,8 @@ ProgressBar > ETAStatus {
     margin-left: 1;
 }
 
-/* Auth / Settings Card */
+/* ==================== Auth & Settings Cards ==================== */
+
 .auth-grid {
     layout: vertical;
     height: auto;
@@ -482,7 +433,8 @@ ProgressBar > ETAStatus {
     overflow: hidden hidden;
 }
 
-/* Responsive Modal Dialogs */
+/* ==================== Modal Screens & Stats ==================== */
+
 ModalScreen {
     align: center middle;
     background: rgba(0, 0, 0, 0.7);
@@ -563,4 +515,47 @@ ModalScreen {
     overflow: auto auto;
 }
 
+.stats-container {
+    height: auto;
+    margin-bottom: 1;
+    layout: horizontal;
+}
 
+.stat-card {
+    height: 3;
+    width: 1fr;
+    min-width: 8;
+    background: #1e1e1e;
+    border: round #333333;
+    padding: 0 1;
+    margin-right: 1;
+    align: center middle;
+}
+
+.stat-card:last-of-type {
+    margin-right: 0;
+}
+
+.stat-title {
+    color: #888888;
+    text-style: bold;
+    text-align: center;
+}
+
+.stat-value {
+    color: #00d2ff;
+    text-style: bold;
+    text-align: center;
+}
+
+.stat-value.green {
+    color: #1DB954;
+}
+
+.stat-value.red {
+    color: #ff4d4d;
+}
+
+.stat-value.yellow {
+    color: #f59e0b;
+}
