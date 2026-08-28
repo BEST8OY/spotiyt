@@ -285,14 +285,39 @@ Input:focus {
 
 Select {
     width: 100%;
-    height: 3;
-    border: round #444444;
+    height: auto;
+}
+
+SelectCurrent {
     background: #121212;
+    border: round #444444;
+    color: #ffffff;
+    height: 3;
+    padding: 0 1;
+}
+
+SelectCurrent:focus {
+    border: round #1DB954;
+}
+
+SelectCurrent.-has-value #label {
+    color: #1DB954;
+    text-style: bold;
+}
+
+SelectCurrent #label {
+    color: #888888;
+}
+
+SelectOverlay {
+    background: #1a1a1a;
+    border: round #1DB954;
     color: #ffffff;
 }
 
-Select:focus {
-    border: round #1DB954;
+SelectOverlay OptionList {
+    background: #1a1a1a;
+    color: #e0e0e0;
 }
 
 Switch {

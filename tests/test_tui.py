@@ -146,6 +146,11 @@ async def test_sync_studio_inputs_and_switches():
             sync_select.value = "spotify_test_id"
             await pilot.pause()
 
+            # Verify dropdown shows selected item in its field
+            select_current = sync_select.query_one("SelectCurrent")
+            assert "-has-value" in select_current.classes
+            assert "Test Hits" in str(select_current.query_one("#label").render())
+
             sid_input = app.query_one("#sync-input-spotify-id", Input)
             ytid_input = app.query_one("#sync-input-ytmusic-id", Input)
             assert sid_input.value == "spotify_test_id"
