@@ -19,10 +19,21 @@ Header {
     background: #181818;
     color: #1DB954;
     text-style: bold;
-    border-bottom: solid #1DB954;
+    border: none;
     overflow: hidden hidden;
     scrollbar-size-horizontal: 0;
 }
+
+HeaderTitle {
+    color: #1DB954;
+    text-style: bold;
+}
+
+HeaderClock {
+    color: #00d2ff;
+    text-style: bold;
+}
+
 
 Footer {
     dock: bottom;
