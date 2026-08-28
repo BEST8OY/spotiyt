@@ -15,6 +15,13 @@ from textual.widgets import (
 
 from spotiyt.tui.app import SpotiYTApp
 from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal, LiveSyncModal
+from spotiyt.tui.tabs import (
+    AuthSettingsTab,
+    CSVImporterTab,
+    DashboardTab,
+    SpotifyImporterTab,
+    SyncStudioTab,
+)
 
 
 async def test_app_mount_and_tabs():
@@ -22,6 +29,12 @@ async def test_app_mount_and_tabs():
     async with app.run_test(size=(120, 40)) as pilot:
         tabs = app.query_one("#main-tabs", TabbedContent)
         assert tabs.active == "tab-dashboard"
+
+        assert len(app.query(DashboardTab)) == 1
+        assert len(app.query(SyncStudioTab)) == 1
+        assert len(app.query(SpotifyImporterTab)) == 1
+        assert len(app.query(CSVImporterTab)) == 1
+        assert len(app.query(AuthSettingsTab)) == 1
 
         # Switch tabs using keys
         await pilot.press("2")

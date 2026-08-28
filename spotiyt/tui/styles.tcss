@@ -3,7 +3,7 @@
 Screen {
     background: #121212;
     color: #e0e0e0;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 Header {
@@ -25,6 +25,7 @@ Footer {
 /* Tabs */
 TabbedContent {
     height: 1fr;
+    overflow: auto auto;
 }
 
 Tabs {
@@ -32,6 +33,9 @@ Tabs {
     height: 3;
     border-bottom: solid #282828;
     padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-size-horizontal: 1;
 }
 
 Tabs:focus {
@@ -92,7 +96,7 @@ Underline {
 TabPane {
     padding: 0 1;
     height: 1fr;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 .sync-options-bar {
@@ -156,13 +160,14 @@ TabPane {
     border: round #2a2a2a;
     padding: 0;
     margin-bottom: 1;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 DataTable {
     height: 1fr;
     background: #181818;
 }
+
 
 DataTable > .datatable--header {
     background: #242424;
@@ -261,7 +266,7 @@ Button:focus {
     padding: 1;
     height: auto;
     margin-bottom: 1;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 .form-row {
@@ -367,6 +372,7 @@ Switch.-on {
     padding: 1;
     margin-top: 1;
     margin-bottom: 1;
+    overflow: auto auto;
 }
 
 RichLog {
@@ -376,6 +382,7 @@ RichLog {
     border: round #222222;
     color: #e0e0e0;
     padding: 0 1;
+    overflow: auto auto;
 }
 
 ProgressBar {
@@ -445,7 +452,7 @@ ProgressBar > ETAStatus {
     height: auto;
     min-height: 8;
     color: #cccccc;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 /* Responsive Modal Dialogs */
@@ -462,7 +469,7 @@ ModalScreen {
     background: #1e1e1e;
     border: round #1DB954;
     padding: 1;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 .modal-title {
@@ -498,7 +505,7 @@ ModalScreen {
     background: #1e1e1e;
     border: round #00d2ff;
     padding: 1;
-    overflow-y: auto;
+    overflow: auto auto;
 }
 
 .modal-sync {
@@ -509,6 +516,7 @@ ModalScreen {
     background: #181818;
     border: round #1DB954;
     padding: 1;
+    overflow: auto auto;
 }
 
 .sync-modal-subtitle {
@@ -525,5 +533,7 @@ ModalScreen {
     border: round #222222;
     margin-top: 1;
     margin-bottom: 1;
+    overflow: auto auto;
 }
+
 

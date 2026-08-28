@@ -5,7 +5,6 @@ from pathlib import Path
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
 from textual.reactive import reactive
 from textual.widgets import (
     Button,
@@ -17,10 +16,8 @@ from textual.widgets import (
     ProgressBar,
     RichLog,
     Select,
-    Static,
     Switch,
     TabbedContent,
-    TabPane,
 )
 
 from spotiyt.auth import refresh_from_cookies_json
@@ -28,7 +25,6 @@ from spotiyt.config import (
     AUTH_JSON,
     COOKIES_JSON,
     EXPORTS_DIR,
-    REGISTRY_FILE,
     SP_DC_FILE,
     ensure_data_dir,
 )
@@ -45,6 +41,13 @@ from spotiyt.sync import (
     sync,
 )
 from spotiyt.tui.screens.modals import ConfirmModal, DryRunModal, EditPlaylistModal, LiveSyncModal
+from spotiyt.tui.tabs import (
+    AuthSettingsTab,
+    CSVImporterTab,
+    DashboardTab,
+    SpotifyImporterTab,
+    SyncStudioTab,
+)
 from spotiyt.ui import extract_spotify_id
 from spotiyt.ytmusic import import_to_ytmusic
 
@@ -74,174 +77,11 @@ class SpotiYTApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with TabbedContent(initial="tab-dashboard", id="main-tabs"):
-            # Tab 1: Dashboard
-            with TabPane("Dashboard", id="tab-dashboard"):
-                with Container(classes="table-container"):
-                    yield DataTable(id="table-playlists")
-
-                with Vertical(classes="sync-options-bar"):
-                    with Horizontal(classes="switch-row"):
-                        yield Switch(value=False, id="dash-switch-preserve")
-                        yield Label("Preserve extra YouTube tracks", classes="switch-label")
-                    with Horizontal(classes="switch-row"):
-                        yield Switch(value=False, id="dash-switch-personalized")
-                        yield Label("Use personalized token (sp_dc)", classes="switch-label")
-
-                with Horizontal(classes="toolbar"):
-                    yield Button("Sync Selected", variant="primary", id="btn-dash-sync", classes="btn-primary")
-                    yield Button("Dry Run Selected", variant="default", id="btn-dash-dry", classes="btn-info")
-                    yield Button("Sync All", variant="primary", id="btn-dash-sync-all", classes="btn-primary")
-                    yield Button("Dry Run All", variant="default", id="btn-dash-dry-all", classes="btn-secondary")
-                    yield Button("+ Add Mapping", variant="default", id="btn-dash-add", classes="btn-secondary")
-                    yield Button("Edit Selected", variant="default", id="btn-dash-edit", classes="btn-secondary")
-                    yield Button("Delete Selected", variant="error", id="btn-dash-del", classes="btn-danger")
-                    yield Button("Delete All", variant="error", id="btn-dash-del-all", classes="btn-danger")
-
-            # Tab 2: Sync Studio
-            with TabPane("Sync Studio", id="tab-sync"):
-                with Vertical(classes="form-panel"):
-                    yield Label("⚡ Sync Workbench & Parameters", classes="form-section-title")
-                    with Horizontal(classes="form-row"):
-                        yield Label("Select Playlist:", classes="form-label")
-                        yield Select[str]([], prompt="Choose registered playlist...", id="sync-select-playlist")
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("Spotify Playlist ID / URL:", classes="form-label")
-                        yield Input(placeholder="e.g. 37i9dQZF1E8MCNiiTgwMk8", id="sync-input-spotify-id")
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("YouTube Music Playlist ID:", classes="form-label")
-                        yield Input(placeholder="e.g. PLrAl5G2L...", id="sync-input-ytmusic-id")
-
-                    with Vertical(classes="switch-group"):
-                        with Horizontal(classes="switch-row"):
-                            yield Switch(value=False, id="sync-switch-preserve")
-                            yield Label("Preserve extra YouTube tracks", classes="switch-label")
-                        with Horizontal(classes="switch-row"):
-                            yield Switch(value=False, id="sync-switch-personalized")
-                            yield Label("Use personalized token (sp_dc)", classes="switch-label")
-                        with Horizontal(classes="switch-row"):
-                            yield Switch(value=False, id="sync-switch-dry")
-                            yield Label("Dry Run (Preview changes)", classes="switch-label")
-
-                    with Horizontal(classes="toolbar"):
-                        yield Button("Start Sync", variant="primary", id="btn-sync-start", classes="btn-primary")
-                        yield Button("Preview Dry Run", variant="default", id="btn-sync-preview", classes="btn-info")
-                        yield Button("Clear Log", variant="default", id="btn-sync-clear", classes="btn-secondary")
-                        yield Button("Reset Inputs", variant="default", id="btn-sync-reset", classes="btn-secondary")
-
-                with Vertical(classes="output-panel"):
-                    yield Label("📊 Live Telemetry & Log Console", classes="form-section-title")
-                    yield ProgressBar(total=100, show_eta=False, id="sync-progress")
-                    yield RichLog(highlight=True, markup=True, id="sync-log")
-
-            # Tab 3: Spotify Importer
-            with TabPane("Spotify Importer", id="tab-import"):
-                with Vertical(classes="form-panel"):
-                    with Horizontal(classes="form-row"):
-                        yield Label("Spotify Playlist Link/ID:", classes="form-label")
-                        yield Input(
-                            placeholder="Paste https://open.spotify.com/playlist/... or ID", id="import-input-url"
-                        )
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("Authentication Mode:", classes="form-label")
-                        yield Select[str](
-                            [
-                                ("Standard (Public Playlists - Anonymous)", "standard"),
-                                ("Personalized (Using sp_dc Cookie)", "personalized"),
-                            ],
-                            value="standard",
-                            allow_blank=False,
-                            id="import-select-auth",
-                        )
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("Export Directory:", classes="form-label")
-                        yield Input(value=str(EXPORTS_DIR), id="import-input-output")
-
-                    with Horizontal(classes="switch-row"):
-                        yield Switch(value=False, id="import-switch-dry")
-                        yield Label("Dry Run (Export CSV only, skip YouTube Music creation)", classes="switch-label")
-
-                    with Horizontal(classes="toolbar"):
-                        yield Button("Start Import", variant="primary", id="btn-import-start", classes="btn-primary")
-                        yield Button("Clear Log", variant="default", id="btn-import-clear", classes="btn-secondary")
-
-                with Vertical(classes="output-panel"):
-                    yield ProgressBar(total=100, show_eta=False, id="import-progress")
-                    yield RichLog(highlight=True, markup=True, id="import-log")
-
-            # Tab 4: CSV Importer
-            with TabPane("CSV Importer", id="tab-csv"):
-                with Vertical(classes="form-panel"):
-                    with Horizontal(classes="form-row"):
-                        yield Label("Path to CSV File:", classes="form-label")
-                        yield Input(placeholder="/path/to/playlist.csv", id="csv-input-path")
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("Playlist Name (optional):", classes="form-label")
-                        yield Input(placeholder="Leave empty to use file name", id="csv-input-name")
-
-                    with Horizontal(classes="form-row"):
-                        yield Label("Playlist Description:", classes="form-label")
-                        yield Input(value="Imported from CSV", id="csv-input-desc")
-
-                    with Horizontal(classes="toolbar"):
-                        yield Button(
-                            "Import CSV to YouTube Music", variant="primary", id="btn-csv-start", classes="btn-primary"
-                        )
-                        yield Button("Clear Log", variant="default", id="btn-csv-clear", classes="btn-secondary")
-
-                with Vertical(classes="output-panel"):
-                    yield ProgressBar(total=100, show_eta=False, id="csv-progress")
-                    yield RichLog(highlight=True, markup=True, id="csv-log")
-
-            # Tab 5: Auth & Settings
-            with TabPane("Auth & Settings", id="tab-auth"):
-                with Vertical(classes="auth-grid"):
-                    with Vertical(classes="auth-card"):
-                        yield Label("YouTube Music Auth", classes="auth-title")
-                        yield Static("Manages credentials for YouTube Music API.", classes="auth-desc")
-                        yield Label("", id="lbl-ytm-cookies-status")
-                        yield Label("", id="lbl-ytm-auth-status")
-                        yield Button(
-                            "Generate auth.json from cookies",
-                            variant="primary",
-                            id="btn-auth-generate",
-                            classes="btn-primary",
-                        )
-
-                    with Vertical(classes="auth-card"):
-                        yield Label("Spotify Personalized Token", classes="auth-title")
-                        yield Static(
-                            "Stores 'sp_dc' cookie for private/algorithmic Spotify playlists.", classes="auth-desc"
-                        )
-                        yield Label("", id="lbl-spotify-sp-dc-status")
-                        yield Input(
-                            placeholder="Paste sp_dc cookie string here...", password=True, id="input-sp-dc-cookie"
-                        )
-                        yield Button(
-                            "Save sp_dc Cookie", variant="default", id="btn-save-sp-dc", classes="btn-secondary"
-                        )
-
-                with ScrollableContainer(classes="guide-box"):
-                    yield Label("Quick Setup Guide & Instructions", classes="auth-title")
-                    yield Static(
-                        "1. [bold cyan]YouTube Music Setup:[/bold cyan]\n"
-                        "   • Log into [underline]music.youtube.com[/underline] in your browser.\n"
-                        "   • Use a browser extension (like 'Export Cookies' or 'EditThisCookie') to export cookies as JSON.\n"
-                        f"   • Save the file to [bold yellow]{COOKIES_JSON}[/bold yellow].\n"
-                        "   • Click '[bold green]Generate auth.json from cookies[/bold green]' above.\n\n"
-                        "2. [bold cyan]Spotify Setup (Optional for Personalized Playlists):[/bold cyan]\n"
-                        "   • Log into [underline]open.spotify.com[/underline].\n"
-                        "   • Open Developer Tools (F12) ➔ Application/Storage ➔ Cookies ➔ https://open.spotify.com.\n"
-                        "   • Copy the value of the cookie named [bold]sp_dc[/bold] and paste it into the field above.\n\n"
-                        "3. [bold cyan]Data Storage Locations:[/bold cyan]\n"
-                        f"   • Registry file: [dim]{REGISTRY_FILE}[/dim]\n"
-                        f"   • Exports folder: [dim]{EXPORTS_DIR}[/dim]\n"
-                    )
-
+            yield DashboardTab()
+            yield SyncStudioTab()
+            yield SpotifyImporterTab()
+            yield CSVImporterTab()
+            yield AuthSettingsTab()
         yield Footer()
 
     def on_mount(self) -> None:
