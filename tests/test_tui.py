@@ -369,6 +369,16 @@ async def test_small_screen_termux_compatibility():
             await pilot.press("2")
             assert app.query_one("#main-tabs", TabbedContent).active == "tab-sync"
 
+            # Trigger horizontal scrolling actions
+            app.action_scroll_right()
+            app.action_scroll_left()
+            await pilot.press("right_bracket")
+            await pilot.press("left_bracket")
+
+            # Verify tabs scroll container is accessible
+            tabs_scroll = app.query_one("Tabs #tabs-scroll")
+            assert tabs_scroll is not None
+
             await pilot.press("3")
             assert app.query_one("#main-tabs", TabbedContent).active == "tab-import"
 
@@ -377,6 +387,7 @@ async def test_small_screen_termux_compatibility():
 
             await pilot.press("5")
             assert app.query_one("#main-tabs", TabbedContent).active == "tab-auth"
+
 
 
 async def test_live_sync_modal_flow():

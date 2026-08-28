@@ -33,9 +33,25 @@ Tabs {
     height: 3;
     border-bottom: solid #282828;
     padding: 0;
+}
+
+Tabs > #tabs-scroll {
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-size-horizontal: 1;
+}
+
+Tabs > #tabs-scroll > #tabs-list-bar {
+    width: auto;
+    height: auto;
+    min-width: 100%;
+    overflow: hidden hidden;
+}
+
+Tabs > #tabs-scroll > #tabs-list-bar > #tabs-list {
+    width: auto;
+    height: auto;
+    overflow: hidden hidden;
 }
 
 Tabs:focus {
@@ -47,11 +63,12 @@ Tab {
     color: #888888;
     background: transparent;
     text-style: bold;
-    height: 3;
+    height: 2;
     content-align: center middle;
     text-align: center;
     border: none;
 }
+
 
 Tab:hover {
     color: #ffffff;
