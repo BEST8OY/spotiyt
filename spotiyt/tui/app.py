@@ -72,7 +72,6 @@ class SpotiYTApp(App[None]):
 
     selected_spotify_id: reactive[str | None] = reactive(None)
     is_busy: reactive[bool] = reactive(False)
-    _playlist_statuses: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -88,7 +87,7 @@ class SpotiYTApp(App[None]):
         ensure_data_dir()
         table = self.query_one("#table-playlists", DataTable)
         table.cursor_type = "cell"
-        table.add_columns("#", "Playlist Name", "Spotify ID", "YouTube Music ID", "Status")
+        table.add_columns("#", "Playlist Name", "Spotify ID", "YouTube Music ID")
         self.refresh_all()
 
     def action_switch_tab(self, tab_id: str) -> None:
@@ -103,18 +102,6 @@ class SpotiYTApp(App[None]):
         self.refresh_dashboard()
         self.refresh_auth_status()
 
-    def set_playlist_status(self, sid: str, status_markup: str) -> None:
-        self._playlist_statuses[sid] = status_markup
-        try:
-            table = self.query_one("#table-playlists", DataTable)
-            if table.is_valid_row_key(sid):
-                for col in table.columns.values():
-                    if str(col.label) == "Status":
-                        table.update_cell(sid, col.key, status_markup)
-                        break
-        except Exception:
-            pass
-
     def refresh_dashboard(self) -> None:
         data = load_registry()
         table = self.query_one("#table-playlists", DataTable)
@@ -124,8 +111,7 @@ class SpotiYTApp(App[None]):
         for idx, (sid, info) in enumerate(data.items(), 1):
             name = info.get("name", "Untitled")
             ytid = info.get("ytmusic_id", "")
-            status = self._playlist_statuses.get(sid, "[dim]Idle[/dim]")
-            table.add_row(str(idx), name, sid, ytid, status, key=sid)
+            table.add_row(str(idx), name, sid, ytid, key=sid)
             select_options.append((f"{name} ({sid[:10]}...)", sid))
 
         sync_select = self.query_one("#sync-select-playlist", Select)
@@ -644,7 +630,6 @@ class SpotiYTApp(App[None]):
         live_modal: LiveSyncModal | None = None,
     ) -> None:
         self.is_busy = True
-        self.call_from_thread(self.set_playlist_status, sid, "[bold yellow]⏳ Syncing...[/bold yellow]")
         rich_log = self.query_one("#sync-log", RichLog)
         progress_bar = self.query_one("#sync-progress", ProgressBar)
         self.call_from_thread(progress_bar.update, progress=0, total=100)
@@ -668,20 +653,16 @@ class SpotiYTApp(App[None]):
             if dry_run and show_modal:
                 if live_modal:
                     self.call_from_thread(live_modal.dismiss)
-                self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
                 self.call_from_thread(self.push_screen, DryRunModal(summary))
             elif dry_run:
                 if live_modal:
                     self.call_from_thread(live_modal.set_complete, "Dry run preview completed.", is_success=True)
-                self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
                 self.call_from_thread(
                     self.notify, "Dry run preview completed.", title="Dry Run", severity="information"
                 )
             else:
                 added = summary.get("added", 0)
                 removed = summary.get("removed", 0)
-                status_text = f"[bold green]✔ Synced (+{added} -{removed})[/bold green]"
-                self.call_from_thread(self.set_playlist_status, sid, status_text)
                 if live_modal:
                     self.call_from_thread(
                         live_modal.set_complete,
@@ -697,7 +678,6 @@ class SpotiYTApp(App[None]):
 
         except Exception as e:
             log_cb("error", f"Sync failed: {e}")
-            self.call_from_thread(self.set_playlist_status, sid, "[bold red]✖ Failed[/bold red]")
             if live_modal:
                 self.call_from_thread(live_modal.set_complete, f"Failed: {e}", is_success=False)
             self.call_from_thread(self.notify, f"Sync failed: {e}", title="Error", severity="error")
@@ -729,9 +709,6 @@ class SpotiYTApp(App[None]):
             for idx, (sid, info) in enumerate(data.items(), 1):
                 pname = info.get("name", "Untitled")
                 ytid = info.get("ytmusic_id", "")
-                self.call_from_thread(
-                    self.set_playlist_status, sid, f"[bold yellow]⏳ Syncing ({idx}/{total_pls})[/bold yellow]"
-                )
                 if live_modal:
                     self.call_from_thread(
                         live_modal.update_progress,
@@ -742,7 +719,7 @@ class SpotiYTApp(App[None]):
                 log_cb("info", f"\n[{idx}/{total_pls}] Processing: [bold cyan]{pname}[/bold cyan] ({sid})")
 
                 try:
-                    summary = sync(
+                    sync(
                         sid,
                         ytid,
                         preserve=preserve,
@@ -752,16 +729,7 @@ class SpotiYTApp(App[None]):
                         progress_cb=progress_cb,
                     )
                     success_count += 1
-                    added = summary.get("added", 0)
-                    removed = summary.get("removed", 0)
-                    if dry_run:
-                        self.call_from_thread(self.set_playlist_status, sid, "[bold cyan]ℹ Previewed[/bold cyan]")
-                    else:
-                        self.call_from_thread(
-                            self.set_playlist_status, sid, f"[bold green]✔ Synced (+{added} -{removed})[/bold green]"
-                        )
                 except Exception as e:
-                    self.call_from_thread(self.set_playlist_status, sid, "[bold red]✖ Failed[/bold red]")
                     log_cb("error", f"Failed syncing '{pname}': {e}")
 
             if live_modal:

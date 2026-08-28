@@ -73,8 +73,8 @@ async def test_dashboard_renders_registry():
 
             table = app.query_one("#table-playlists", DataTable)
             assert table.row_count == 2
-            # 5 columns: #, Playlist Name, Spotify ID, YouTube Music ID, Status
-            assert len(table.columns) == 5
+            # 4 clean columns: #, Playlist Name, Spotify ID, YouTube Music ID
+            assert len(table.columns) == 4
 
             # Verify dropdown options populated
             sync_select = app.query_one("#sync-select-playlist", Select)
@@ -82,7 +82,7 @@ async def test_dashboard_renders_registry():
             assert len(user_options) == 2
 
 
-async def test_dashboard_sync_action_shows_live_modal_and_updates_status():
+async def test_dashboard_sync_action_shows_live_modal():
     sample_registry = {
         "37i9dQZF1E8MCNiiTgwMk8": {
             "name": "Discover Weekly",
@@ -124,10 +124,6 @@ async def test_dashboard_sync_action_shows_live_modal_and_updates_status():
             # Close or dismiss modal
             app.screen.action_dismiss_modal()
             await pilot.pause()
-
-            # Verify status in app
-            assert "37i9dQZF1E8MCNiiTgwMk8" in app._playlist_statuses
-            assert "Synced" in app._playlist_statuses["37i9dQZF1E8MCNiiTgwMk8"]
 
 
 async def test_dashboard_switches_cross_synchronization():
