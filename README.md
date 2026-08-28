@@ -14,7 +14,7 @@ A fast, reliable, and modular Python package + interactive CLI built with **[uv]
   - **Dynamic Artist Matching**: Intelligently handles leading `"The "` prefixes (*The Goo Goo Dolls* $\leftrightarrow$ *Goo Goo Dolls*, *The Beatles* $\leftrightarrow$ *Beatles*), multi-artist delimiters (`;`, `,`, `&`, `feat.`, `ft.`, `x`, `with`), and diacritics/accents (*Beyoncé* $\leftrightarrow$ *Beyonce*).
   - **Version & Noise Stripping**: Cleans remaster tags (`- 2008 Remaster`, `(Remastered 2020)`), anniversary editions, radio edits, and YouTube upload noise (`[Official Audio]`, `(Official Music Video)`, `[Visualizer]`, `(Lyrics)`, `[4K]`).
   - **Multi-Stage Progressive Fallbacks**: Song search $\rightarrow$ video upload search $\rightarrow$ album endpoint search $\rightarrow$ artist catalog browse.
-- **Modern Textual TUI Studio**: Full reactive terminal user interface built with **Textual** featuring interactive tabs (Dashboard, Sync Studio, Spotify Importer, CSV Importer, Auth Manager), background worker threads, live progress bars, streaming logs, and modal dialogs.
+- **Modern Textual TUI Studio**: Full reactive terminal user interface built with **Textual** featuring modular tabs (Dashboard, Sync Studio, Spotify Importer, CSV Importer, Auth Manager), `LiveSyncModal` with live foreground/background execution, real-time playlist table status chips, streaming logs, and full 2D horizontal/vertical scroll navigation for mobile Termux and desktop terminals.
 - **Bidirectional Syncing**: Synchronize existing YouTube Music playlists with Spotify (adds missing tracks, removes extras, with optional `--preserve` and `--dry-run` modes).
 - **Batch Processing & Verification**: Imports tracks in batches of 25 with automatic post-import verification, deduplication, and missing-track reporting (`_not_found.csv` and `_dropped.csv`).
 
@@ -136,11 +136,11 @@ uv run spotiyt csv data/exports/Zombie_Radio.csv "Zombie Radio"
 
 ---
 
-### 5. Running Regression Tests
-Run the test suite using UV to verify text normalization, title stripping, and artist fuzzy matching:
+### 5. Running Tests
+Run the comprehensive async and unit test suite using `pytest`:
 
 ```bash
-uv run python -m unittest discover -s tests
+uv run pytest
 ```
 
 ---
@@ -187,17 +187,24 @@ When matching tracks between Spotify and YouTube Music:
 │   ├── ui.py                   # Centralized Rich terminal engine, progress bars, tables
 │   └── tui/                    # Textual Terminal User Interface (Studio)
 │       ├── __init__.py         # TUI exports
-│       ├── app.py              # Main Textual SpotiYTApp with reactive tabs & workers
-│       ├── styles.tcss         # Custom TCSS stylesheet (Spotify/YouTube dark theme)
-│       └── screens/
-│           └── modals.py       # Modal dialogs (Confirm, Edit Mapping, DryRun Preview)
+│       ├── app.py              # Main Textual SpotiYTApp orchestration & worker threads
+│       ├── styles.tcss         # Responsive TCSS stylesheet (Termux & desktop 2D scrolling)
+│       ├── screens/
+│       │   └── modals.py       # Modal dialogs (Confirm, Edit, DryRun, LiveSyncModal)
+│       └── tabs/               # Modular tab components
+│           ├── __init__.py     # Tab package exports
+│           ├── dashboard.py    # Dashboard tab (playlist table & live status)
+│           ├── sync_studio.py  # Sync Studio tab (workbench & telemetry)
+│           ├── importer.py     # Spotify Importer tab
+│           ├── csv_importer.py # CSV Importer tab
+│           └── auth_settings.py# Auth & Settings tab
 │
 ├── tests/                      # Dedicated test suite
 │   ├── __init__.py
 │   ├── test_auth.py            # Auth & cookie tests
 │   ├── test_matching.py        # Automated matching heuristic & regression tests
 │   ├── test_sync.py            # Sync logic & deduplication tests
-│   ├── test_tui.py             # Asynchronous Textual pilot tests
+│   ├── test_tui.py             # Asynchronous Textual pilot tests (desktop & Termux)
 │   ├── test_ui.py              # UI helper tests
 │   └── test_ytmusic.py         # YouTube Music import & search tests
 │
