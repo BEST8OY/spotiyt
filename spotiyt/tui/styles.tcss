@@ -276,6 +276,14 @@ Button:focus {
     background: #b45309;
 }
 
+* {
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-color: #1DB954 #242424;
+    scrollbar-color-hover: #1ed760 #333333;
+    scrollbar-color-active: #00d2ff #444444;
+}
+
 /* Responsive Form Styles */
 .form-panel {
     background: #1e1e1e;
@@ -283,7 +291,7 @@ Button:focus {
     padding: 1;
     height: auto;
     margin-bottom: 1;
-    overflow: auto auto;
+    overflow: hidden hidden;
 }
 
 .form-row {
@@ -384,17 +392,18 @@ Switch.-on {
 .output-panel {
     background: #181818;
     border: round #2a2a2a;
-    height: 1fr;
-    min-height: 16;
+    height: auto;
+    min-height: 14;
     padding: 1;
-    margin-top: 1;
+    margin-top: 0;
     margin-bottom: 1;
-    overflow: auto auto;
+    overflow: hidden hidden;
 }
 
 RichLog {
-    height: 1fr;
+    height: auto;
     min-height: 12;
+    max-height: 25;
     background: #0d0d0d;
     border: round #222222;
     color: #e0e0e0;
@@ -449,6 +458,7 @@ ProgressBar > ETAStatus {
     padding: 1;
     height: auto;
     margin-bottom: 1;
+    overflow: hidden hidden;
 }
 
 .auth-title {
@@ -469,7 +479,7 @@ ProgressBar > ETAStatus {
     height: auto;
     min-height: 8;
     color: #cccccc;
-    overflow: auto auto;
+    overflow: hidden hidden;
 }
 
 /* Responsive Modal Dialogs */

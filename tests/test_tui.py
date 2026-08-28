@@ -389,7 +389,6 @@ async def test_small_screen_termux_compatibility():
             assert app.query_one("#main-tabs", TabbedContent).active == "tab-auth"
 
 
-
 async def test_live_sync_modal_flow():
     app = SpotiYTApp()
     async with app.run_test(size=(120, 40)) as pilot:

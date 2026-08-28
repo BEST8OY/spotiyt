@@ -66,8 +66,10 @@ class SpotiYTApp(App[None]):
         Binding("3", "switch_tab('tab-import')", "Import", show=True),
         Binding("4", "switch_tab('tab-csv')", "CSV", show=True),
         Binding("5", "switch_tab('tab-auth')", "Auth", show=True),
-        Binding("left_bracket", "scroll_left", "Scroll Left", show=True),
-        Binding("right_bracket", "scroll_right", "Scroll Right", show=True),
+        Binding("comma", "scroll_left", "< Scroll", show=True),
+        Binding("full_stop", "scroll_right", "Scroll >", show=True),
+        Binding("left_bracket", "scroll_left", "Scroll Left", show=False),
+        Binding("right_bracket", "scroll_right", "Scroll Right", show=False),
         Binding("h", "scroll_left", "Scroll Left", show=False),
         Binding("l", "scroll_right", "Scroll Right", show=False),
         Binding("r", "refresh_all", "Refresh", show=True),
@@ -91,7 +93,7 @@ class SpotiYTApp(App[None]):
     def on_mount(self) -> None:
         ensure_data_dir()
         table = self.query_one("#table-playlists", DataTable)
-        table.cursor_type = "row"
+        table.cursor_type = "cell"
         table.add_columns("#", "Playlist Name", "Spotify ID", "YouTube Music ID", "Status")
         self.refresh_all()
 
@@ -99,33 +101,41 @@ class SpotiYTApp(App[None]):
         tabs = self.query_one("#main-tabs", TabbedContent)
         tabs.active = tab_id
 
-    def action_scroll_left(self) -> None:
-        """Scroll focused container or active tab horizontally left."""
+    def _get_active_scroll_target(self):
         focused = self.focused
-        if focused and hasattr(focused, "scroll_relative"):
-            focused.scroll_relative(x=-12, animate=False)
-        else:
+        if focused and hasattr(focused, "scroll_relative") and not isinstance(focused, App):
+            return focused
+        try:
             tabs = self.query_one("#main-tabs", TabbedContent)
-            if tabs.active:
-                try:
-                    pane = self.query_one(f"#{tabs.active}")
-                    pane.scroll_relative(x=-12, animate=False)
-                except Exception:
-                    pass
+            active_id = tabs.active
+            if active_id == "tab-dashboard":
+                return self.query_one("#table-playlists", DataTable)
+            elif active_id == "tab-sync":
+                return self.query_one("#sync-log", RichLog)
+            elif active_id == "tab-import":
+                return self.query_one("#import-log", RichLog)
+            elif active_id == "tab-csv":
+                return self.query_one("#csv-log", RichLog)
+            elif active_id == "tab-auth":
+                return self.query_one(".guide-box")
+        except Exception:
+            pass
+        try:
+            return self.query_one("Tabs #tabs-scroll")
+        except Exception:
+            return None
+
+    def action_scroll_left(self) -> None:
+        """Scroll focused container, table, log, or tabs horizontally left."""
+        target = self._get_active_scroll_target()
+        if target and hasattr(target, "scroll_relative"):
+            target.scroll_relative(x=-15, animate=False)
 
     def action_scroll_right(self) -> None:
-        """Scroll focused container or active tab horizontally right."""
-        focused = self.focused
-        if focused and hasattr(focused, "scroll_relative"):
-            focused.scroll_relative(x=12, animate=False)
-        else:
-            tabs = self.query_one("#main-tabs", TabbedContent)
-            if tabs.active:
-                try:
-                    pane = self.query_one(f"#{tabs.active}")
-                    pane.scroll_relative(x=12, animate=False)
-                except Exception:
-                    pass
+        """Scroll focused container, table, log, or tabs horizontally right."""
+        target = self._get_active_scroll_target()
+        if target and hasattr(target, "scroll_relative"):
+            target.scroll_relative(x=15, animate=False)
 
     @on(events.MouseScrollDown, "Tabs")
     @on(events.MouseScrollRight, "Tabs")
@@ -216,6 +226,28 @@ class SpotiYTApp(App[None]):
     def on_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key and event.row_key.value:
             self.selected_spotify_id = str(event.row_key.value)
+
+    @on(DataTable.CellSelected, "#table-playlists")
+    def on_table_cell_selected(self, event: DataTable.CellSelected) -> None:
+        if event.coordinate:
+            try:
+                table = self.query_one("#table-playlists", DataTable)
+                row_key, _ = table.coordinate_to_cell_key(event.coordinate)
+                if row_key and row_key.value:
+                    self.selected_spotify_id = str(row_key.value)
+            except Exception:
+                pass
+
+    @on(DataTable.CellHighlighted, "#table-playlists")
+    def on_table_cell_highlighted(self, event: DataTable.CellHighlighted) -> None:
+        if event.coordinate:
+            try:
+                table = self.query_one("#table-playlists", DataTable)
+                row_key, _ = table.coordinate_to_cell_key(event.coordinate)
+                if row_key and row_key.value:
+                    self.selected_spotify_id = str(row_key.value)
+            except Exception:
+                pass
 
     def _ensure_selected_spotify_id(self) -> str | None:
         if self.selected_spotify_id:
