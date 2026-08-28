@@ -1,0 +1,359 @@
+/* SpotiYT Modern Textual Stylesheet */
+
+Screen {
+    background: #121212;
+    color: #e0e0e0;
+}
+
+Header {
+    dock: top;
+    height: 3;
+    background: #181818;
+    color: #1DB954;
+    text-style: bold;
+    border-bottom: solid #1DB954;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: #181818;
+    color: #888888;
+}
+
+/* Tabs */
+TabbedContent {
+    height: 1fr;
+}
+
+Tabs {
+    background: #181818;
+    height: 3;
+    border-bottom: solid #282828;
+}
+
+Tab {
+    padding: 0 2;
+    color: #aaaaaa;
+    text-style: bold;
+}
+
+Tab:hover {
+    background: #242424;
+    color: #ffffff;
+}
+
+Tab.-active {
+    background: #282828;
+    color: #1DB954;
+    border-bottom: tall #1DB954;
+}
+
+TabPane {
+    padding: 1 2;
+    height: 1fr;
+}
+
+/* Dashboard Styles */
+.stats-container {
+    height: auto;
+    margin-bottom: 1;
+    layout: horizontal;
+}
+
+.stat-card {
+    height: 4;
+    width: 1fr;
+    background: #1e1e1e;
+    border: round #333333;
+    padding: 0 1;
+    margin-right: 1;
+    align: center middle;
+}
+
+.stat-card:last-of-type {
+    margin-right: 0;
+}
+
+.stat-title {
+    color: #888888;
+    text-style: bold;
+    text-align: center;
+}
+
+.stat-value {
+    color: #00d2ff;
+    text-style: bold;
+    text-align: center;
+}
+
+.stat-value.green {
+    color: #1DB954;
+}
+
+.stat-value.red {
+    color: #ff4d4d;
+}
+
+.stat-value.yellow {
+    color: #f59e0b;
+}
+
+.table-container {
+    height: 1fr;
+    background: #181818;
+    border: round #2a2a2a;
+    padding: 0;
+    margin-bottom: 1;
+}
+
+DataTable {
+    height: 1fr;
+    background: #181818;
+}
+
+DataTable > .datatable--header {
+    background: #242424;
+    color: #1DB954;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #1DB954;
+    color: #000000;
+    text-style: bold;
+}
+
+/* Button & Toolbars */
+.toolbar {
+    height: auto;
+    layout: horizontal;
+    align-horizontal: left;
+    margin-top: 1;
+}
+
+Button {
+    min-width: 14;
+    height: 3;
+    margin-right: 1;
+    border: none;
+    text-style: bold;
+}
+
+Button:focus {
+    border: tall #00d2ff;
+}
+
+.btn-primary {
+    background: #1DB954;
+    color: #000000;
+}
+
+.btn-primary:hover {
+    background: #1ed760;
+}
+
+.btn-danger {
+    background: #FF0000;
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    background: #ff3333;
+}
+
+.btn-secondary {
+    background: #2a2a2a;
+    color: #e0e0e0;
+}
+
+.btn-secondary:hover {
+    background: #3a3a3a;
+}
+
+.btn-info {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.btn-info:hover {
+    background: #0369a1;
+}
+
+.btn-warning {
+    background: #d97706;
+    color: #000000;
+}
+
+.btn-warning:hover {
+    background: #b45309;
+}
+
+/* Form Styles */
+.form-panel {
+    background: #1e1e1e;
+    border: round #333333;
+    padding: 1 2;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.form-row {
+    height: auto;
+    layout: horizontal;
+    align-vertical: middle;
+    margin-bottom: 1;
+}
+
+.form-label {
+    width: 28;
+    color: #aaaaaa;
+    text-style: bold;
+    padding-top: 1;
+}
+
+Input {
+    height: 3;
+    border: round #444444;
+    background: #121212;
+    color: #ffffff;
+    padding: 0 1;
+}
+
+Input:focus {
+    border: round #1DB954;
+}
+
+Select {
+    height: 3;
+    border: round #444444;
+    background: #121212;
+    color: #ffffff;
+}
+
+Select:focus {
+    border: round #1DB954;
+}
+
+Switch {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+Switch.-on {
+    background: #1DB954;
+}
+
+.switch-row {
+    height: 3;
+    layout: horizontal;
+    align-vertical: middle;
+    margin-bottom: 1;
+}
+
+.switch-label {
+    color: #e0e0e0;
+    margin-left: 1;
+}
+
+/* Log & Output Panel */
+.output-panel {
+    background: #181818;
+    border: round #2a2a2a;
+    height: 1fr;
+    padding: 1;
+}
+
+RichLog {
+    height: 1fr;
+    background: #121212;
+    border: round #222222;
+    color: #cccccc;
+    padding: 0 1;
+}
+
+ProgressBar {
+    height: 1;
+    margin-bottom: 1;
+    color: #1DB954;
+}
+
+ProgressBar > .bar--complete {
+    color: #1DB954;
+}
+
+/* Auth / Settings Card */
+.auth-grid {
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.auth-card {
+    background: #1e1e1e;
+    border: round #333333;
+    padding: 1 2;
+    height: auto;
+}
+
+.auth-title {
+    color: #1DB954;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.auth-desc {
+    color: #999999;
+    margin-bottom: 1;
+}
+
+.guide-box {
+    background: #181818;
+    border: round #2a2a2a;
+    padding: 1 2;
+    height: 1fr;
+    color: #cccccc;
+}
+
+/* Modal Dialogs */
+ModalScreen {
+    align: center middle;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-dialog {
+    width: 65;
+    height: auto;
+    background: #1e1e1e;
+    border: round #1DB954;
+    padding: 1 2;
+}
+
+.modal-title {
+    color: #1DB954;
+    text-style: bold;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+.modal-body {
+    color: #e0e0e0;
+    margin-bottom: 1;
+    text-align: center;
+}
+
+.modal-buttons {
+    layout: horizontal;
+    align-horizontal: center;
+    margin-top: 1;
+}
+
+.modal-large {
+    width: 85;
+    height: 30;
+    background: #1e1e1e;
+    border: round #00d2ff;
+    padding: 1 2;
+}
