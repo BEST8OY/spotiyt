@@ -71,6 +71,32 @@ async def test_dashboard_renders_registry():
             assert len(user_options) == 2
 
 
+async def test_dashboard_switches_cross_synchronization():
+    app = SpotiYTApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        dash_preserve = app.query_one("#dash-switch-preserve", Switch)
+        sync_preserve = app.query_one("#sync-switch-preserve", Switch)
+        dash_pers = app.query_one("#dash-switch-personalized", Switch)
+        sync_pers = app.query_one("#sync-switch-personalized", Switch)
+        import_auth = app.query_one("#import-select-auth", Select)
+
+        # Toggle on dashboard -> updates sync studio
+        dash_preserve.value = True
+        await pilot.pause()
+        assert sync_preserve.value is True
+
+        dash_pers.value = True
+        await pilot.pause()
+        assert sync_pers.value is True
+        assert import_auth.value == "personalized"
+
+        # Toggle in import tab -> updates dashboard & sync
+        import_auth.value = "standard"
+        await pilot.pause()
+        assert dash_pers.value is False
+        assert sync_pers.value is False
+
+
 async def test_sync_studio_inputs_and_switches():
     sample_registry = {
         "spotify_test_id": {

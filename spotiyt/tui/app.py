@@ -92,6 +92,14 @@ class SpotiYTApp(App[None]):
                 with Container(classes="table-container"):
                     yield DataTable(id="table-playlists")
 
+                with Vertical(classes="sync-options-bar"):
+                    with Horizontal(classes="switch-row"):
+                        yield Switch(value=False, id="dash-switch-preserve")
+                        yield Label("Preserve extra YouTube tracks", classes="switch-label")
+                    with Horizontal(classes="switch-row"):
+                        yield Switch(value=False, id="dash-switch-personalized")
+                        yield Label("Use personalized token (sp_dc)", classes="switch-label")
+
                 with Horizontal(classes="toolbar"):
                     yield Button("Sync Selected", variant="primary", id="btn-dash-sync", classes="btn-primary")
                     yield Button("Dry Run Selected", variant="default", id="btn-dash-dry", classes="btn-info")
@@ -333,6 +341,48 @@ class SpotiYTApp(App[None]):
                 self.query_one("#sync-input-ytmusic-id", Input).value = info.get("ytmusic_id", "")
                 self.query_one("#sync-select-playlist", Select).value = self.selected_spotify_id
 
+    @on(Switch.Changed, "#dash-switch-preserve")
+    def on_dash_preserve_changed(self, event: Switch.Changed) -> None:
+        sync_switch = self.query_one("#sync-switch-preserve", Switch)
+        if sync_switch.value != event.value:
+            sync_switch.value = event.value
+
+    @on(Switch.Changed, "#sync-switch-preserve")
+    def on_sync_preserve_changed(self, event: Switch.Changed) -> None:
+        dash_switch = self.query_one("#dash-switch-preserve", Switch)
+        if dash_switch.value != event.value:
+            dash_switch.value = event.value
+
+    @on(Switch.Changed, "#dash-switch-personalized")
+    def on_dash_personalized_changed(self, event: Switch.Changed) -> None:
+        sync_switch = self.query_one("#sync-switch-personalized", Switch)
+        if sync_switch.value != event.value:
+            sync_switch.value = event.value
+        auth_select = self.query_one("#import-select-auth", Select)
+        target_auth = "personalized" if event.value else "standard"
+        if auth_select.value != target_auth:
+            auth_select.value = target_auth
+
+    @on(Switch.Changed, "#sync-switch-personalized")
+    def on_sync_personalized_changed(self, event: Switch.Changed) -> None:
+        dash_switch = self.query_one("#dash-switch-personalized", Switch)
+        if dash_switch.value != event.value:
+            dash_switch.value = event.value
+        auth_select = self.query_one("#import-select-auth", Select)
+        target_auth = "personalized" if event.value else "standard"
+        if auth_select.value != target_auth:
+            auth_select.value = target_auth
+
+    @on(Select.Changed, "#import-select-auth")
+    def on_import_auth_changed(self, event: Select.Changed) -> None:
+        is_pers = event.value == "personalized"
+        dash_switch = self.query_one("#dash-switch-personalized", Switch)
+        sync_switch = self.query_one("#sync-switch-personalized", Switch)
+        if dash_switch.value != is_pers:
+            dash_switch.value = is_pers
+        if sync_switch.value != is_pers:
+            sync_switch.value = is_pers
+
     @on(Button.Pressed, "#btn-dash-sync")
     def on_dash_sync_pressed(self) -> None:
         if not self.selected_spotify_id:
@@ -342,9 +392,11 @@ class SpotiYTApp(App[None]):
         info = data.get(self.selected_spotify_id)
         if not info:
             return
+        preserve = self.query_one("#dash-switch-preserve", Switch).value
+        personalized = self.query_one("#dash-switch-personalized", Switch).value
         self.action_switch_tab("tab-sync")
         self.trigger_sync(
-            self.selected_spotify_id, info["ytmusic_id"], preserve=False, personalized=False, dry_run=False
+            self.selected_spotify_id, info["ytmusic_id"], preserve=preserve, personalized=personalized, dry_run=False
         )
 
     @on(Button.Pressed, "#btn-dash-dry")
@@ -356,12 +408,14 @@ class SpotiYTApp(App[None]):
         info = data.get(self.selected_spotify_id)
         if not info:
             return
+        preserve = self.query_one("#dash-switch-preserve", Switch).value
+        personalized = self.query_one("#dash-switch-personalized", Switch).value
         self.action_switch_tab("tab-sync")
         self.trigger_sync(
             self.selected_spotify_id,
             info["ytmusic_id"],
-            preserve=False,
-            personalized=False,
+            preserve=preserve,
+            personalized=personalized,
             dry_run=True,
             show_modal=True,
         )
@@ -372,11 +426,13 @@ class SpotiYTApp(App[None]):
         if not data:
             self.notify("No playlists registered to sync.", title="Warning", severity="warning")
             return
+        preserve = self.query_one("#dash-switch-preserve", Switch).value
+        personalized = self.query_one("#dash-switch-personalized", Switch).value
 
         def handle_confirm(confirmed: bool) -> None:
             if confirmed:
                 self.action_switch_tab("tab-sync")
-                self.worker_sync_all(preserve=False, personalized=False, dry_run=False)
+                self.worker_sync_all(preserve=preserve, personalized=personalized, dry_run=False)
 
         self.push_screen(
             ConfirmModal(
@@ -393,8 +449,10 @@ class SpotiYTApp(App[None]):
         if not data:
             self.notify("No playlists registered to preview.", title="Warning", severity="warning")
             return
+        preserve = self.query_one("#dash-switch-preserve", Switch).value
+        personalized = self.query_one("#dash-switch-personalized", Switch).value
         self.action_switch_tab("tab-sync")
-        self.worker_sync_all(preserve=False, personalized=False, dry_run=True)
+        self.worker_sync_all(preserve=preserve, personalized=personalized, dry_run=True)
 
     @on(Button.Pressed, "#btn-dash-add")
     def on_dash_add_pressed(self) -> None:

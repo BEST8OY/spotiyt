@@ -28,25 +28,48 @@ TabbedContent {
 }
 
 Tabs {
-    background: #181818;
+    background: #141414;
     height: 3;
-    border-bottom: solid #282828;
+    border-bottom: solid #222222;
+}
+
+Tabs:focus {
+    border-bottom: solid #1DB954;
 }
 
 Tab {
-    padding: 0 1;
-    color: #aaaaaa;
+    padding: 0 2;
+    color: #888888;
+    background: transparent;
     text-style: bold;
-    min-width: 6;
+    border: none;
 }
 
 Tab:hover {
-    background: #242424;
     color: #ffffff;
+    background: #1a1a1a;
+}
+
+Tab:focus {
+    color: #ffffff;
+    background: transparent;
 }
 
 Tab.-active {
-    background: #282828;
+    color: #1DB954;
+    background: transparent;
+    border-bottom: tall #1DB954;
+    text-style: bold;
+}
+
+Tab.-active:focus {
+    color: #1ed760;
+    background: transparent;
+    border-bottom: tall #1ed760;
+}
+
+Tabs:focus Tab.-active {
+    background: transparent;
     color: #1DB954;
     border-bottom: tall #1DB954;
 }
@@ -55,6 +78,14 @@ TabPane {
     padding: 0 1;
     height: 1fr;
     overflow-y: auto;
+}
+
+.sync-options-bar {
+    height: auto;
+    background: #1a1a1a;
+    border: round #2a2a2a;
+    padding: 0 1;
+    margin-bottom: 1;
 }
 
 /* Dashboard Styles */
