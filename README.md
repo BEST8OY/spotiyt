@@ -14,7 +14,7 @@ A fast, reliable, and modular Python package + interactive CLI built with **[uv]
   - **Dynamic Artist Matching**: Intelligently handles leading `"The "` prefixes (*The Goo Goo Dolls* $\leftrightarrow$ *Goo Goo Dolls*, *The Beatles* $\leftrightarrow$ *Beatles*), multi-artist delimiters (`;`, `,`, `&`, `feat.`, `ft.`, `x`, `with`), and diacritics/accents (*Beyoncé* $\leftrightarrow$ *Beyonce*).
   - **Version & Noise Stripping**: Cleans remaster tags (`- 2008 Remaster`, `(Remastered 2020)`), anniversary editions, radio edits, and YouTube upload noise (`[Official Audio]`, `(Official Music Video)`, `[Visualizer]`, `(Lyrics)`, `[4K]`).
   - **Multi-Stage Progressive Fallbacks**: Song search $\rightarrow$ video upload search $\rightarrow$ album endpoint search $\rightarrow$ artist catalog browse.
-- **Terminal UI (`CursesMenu`)**: Keyboard-driven interactive curses menu (`↑`/`↓`, `j`/`k`, `Home`/`End`, `Enter`, `q`/`Esc`) with real-time status badges (`[ON]`, `[OFF]`, `[SYNC]`, `[DELETE]`).
+- **Modern Textual TUI Studio**: Full reactive terminal user interface built with **Textual** featuring interactive tabs (Dashboard, Sync Studio, Spotify Importer, CSV Importer, Auth Manager), background worker threads, live progress bars, streaming logs, and modal dialogs.
 - **Bidirectional Syncing**: Synchronize existing YouTube Music playlists with Spotify (adds missing tracks, removes extras, with optional `--preserve` and `--dry-run` modes).
 - **Batch Processing & Verification**: Imports tracks in batches of 25 with automatic post-import verification, deduplication, and missing-track reporting (`_not_found.csv` and `_dropped.csv`).
 
@@ -177,18 +177,29 @@ When matching tracks between Spotify and YouTube Music:
 ├── spotiyt/                    # Main Python package
 │   ├── __init__.py             # Package metadata
 │   ├── __main__.py             # Module execution entrypoint (`uv run python -m spotiyt`)
-│   ├── cli.py                  # Unified CLI dispatcher (sync, import, csv, auth, list)
+│   ├── cli.py                  # Unified CLI dispatcher (sync, import, csv, auth, list, tui)
 │   ├── config.py               # Centralized data and credential paths
 │   ├── matching.py             # Normalization, title stripping, artist fuzzy matching heuristics
 │   ├── spotify.py              # Spotify TOTP token generation, GraphQL fetch, CSV exporter
 │   ├── ytmusic.py              # YouTube Music client, progressive search, batch ops, verify
-│   ├── sync.py                 # Diff engine, sync workflows, and interactive sync dashboard
+│   ├── sync.py                 # Diff engine, sync workflows, and registry management
 │   ├── auth.py                 # Cookie parser and auth.json generator
-│   └── ui.py                   # Centralized Rich terminal engine, progress bars, tables, CursesMenu
+│   ├── ui.py                   # Centralized Rich terminal engine, progress bars, tables
+│   └── tui/                    # Textual Terminal User Interface (Studio)
+│       ├── __init__.py         # TUI exports
+│       ├── app.py              # Main Textual SpotiYTApp with reactive tabs & workers
+│       ├── styles.tcss         # Custom TCSS stylesheet (Spotify/YouTube dark theme)
+│       └── screens/
+│           └── modals.py       # Modal dialogs (Confirm, Edit Mapping, DryRun Preview)
 │
 ├── tests/                      # Dedicated test suite
 │   ├── __init__.py
-│   └── test_matching.py        # Automated unit and regression tests
+│   ├── test_auth.py            # Auth & cookie tests
+│   ├── test_matching.py        # Automated matching heuristic & regression tests
+│   ├── test_sync.py            # Sync logic & deduplication tests
+│   ├── test_tui.py             # Asynchronous Textual pilot tests
+│   ├── test_ui.py              # UI helper tests
+│   └── test_ytmusic.py         # YouTube Music import & search tests
 │
 ├── pyproject.toml              # UV / PEP 621 project configuration
 ├── uv.lock                     # UV lockfile with pinned dependencies
