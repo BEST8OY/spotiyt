@@ -1,25 +1,39 @@
 import json
 import sys
 from pathlib import Path
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any
 
 from ytmusicapi import YTMusic
 
-from spotiyt.matching import (
-    normalize_title, strip_parens, word_ratio, _artist_ratio, join_artist_names
-)
-from spotiyt.spotify import get_token, fetch_playlist, parse_spotify_items
-from spotiyt.ytmusic import (
-    get_ytmusic_client, search_tracks, add_in_batches, remove_in_batches
-)
-from spotiyt.ui import (
-    console, CursesMenu, print_banner, print_success, print_error,
-    print_warning, print_info, print_summary_table, Table
-)
 from spotiyt.config import REGISTRY_FILE, ensure_data_dir
+from spotiyt.matching import (
+    _artist_ratio,
+    join_artist_names,
+    normalize_title,
+    strip_parens,
+    word_ratio,
+)
+from spotiyt.spotify import fetch_playlist, get_token, parse_spotify_items
+from spotiyt.ui import (
+    Table,
+    console,
+    print_banner,
+    print_error,
+    print_info,
+    print_success,
+    print_summary_table,
+    print_warning,
+)
+from spotiyt.ytmusic import (
+    add_in_batches,
+    deduplicate,
+    get_ytmusic_client,
+    remove_in_batches,
+    search_tracks,
+)
 
 
-def load_registry(path_obj: Optional[Path] = None) -> Dict[str, Dict[str, str]]:
+def load_registry(path_obj: Path | None = None) -> dict[str, dict[str, str]]:
     ensure_data_dir()
     path = Path(path_obj) if path_obj else REGISTRY_FILE
     if path.exists():
@@ -30,7 +44,7 @@ def load_registry(path_obj: Optional[Path] = None) -> Dict[str, Dict[str, str]]:
     return {}
 
 
-def save_registry(data: Dict[str, Dict[str, str]], path_obj: Optional[Path] = None):
+def save_registry(data: dict[str, dict[str, str]], path_obj: Path | None = None):
     ensure_data_dir()
     path = Path(path_obj) if path_obj else REGISTRY_FILE
     path.write_text(json.dumps(data, indent=2) + "\n")
@@ -51,7 +65,9 @@ def list_registered_playlists():
         print_warning("No playlists registered yet in playlists.json.")
         return
 
-    table = Table(title="Registered Playlists", border_style="cyan", title_style="bold cyan", header_style="bold magenta")
+    table = Table(
+        title="Registered Playlists", border_style="cyan", title_style="bold cyan", header_style="bold magenta"
+    )
     table.add_column("#", style="dim", width=4)
     table.add_column("Playlist Name", style="bold white")
     table.add_column("Spotify ID", style="cyan")
@@ -63,21 +79,25 @@ def list_registered_playlists():
     console.print(table)
 
 
-def get_yt_playlist(ytm: YTMusic, playlist_id: str) -> Tuple[str, List[Dict[str, str]]]:
+def get_yt_playlist(ytm: YTMusic, playlist_id: str) -> tuple[str, list[dict[str, str]]]:
     playlist = ytm.get_playlist(playlist_id, limit=None)
     tracks = []
     for t in playlist.get("tracks", []):
         if t and t.get("videoId"):
-            tracks.append({
-                "videoId": t["videoId"],
-                "setVideoId": t.get("setVideoId"),
-                "title": t.get("title", ""),
-                "artists": join_artist_names(t.get("artists", [])),
-            })
+            tracks.append(
+                {
+                    "videoId": t["videoId"],
+                    "setVideoId": t.get("setVideoId"),
+                    "title": t.get("title", ""),
+                    "artists": join_artist_names(t.get("artists", [])),
+                }
+            )
     return playlist.get("title", ""), tracks
 
 
-def find_unmatched(spotify_tracks: List[Dict[str, str]], yt_tracks: List[Dict[str, str]]) -> Tuple[List[Dict[str, str]], List[str], List[Dict[str, str]]]:
+def find_unmatched(
+    spotify_tracks: list[dict[str, str]], yt_tracks: list[dict[str, str]]
+) -> tuple[list[dict[str, str]], list[str], list[dict[str, str]]]:
     yt_used = set()
     unmatched_spotify = []
     matched_ids = []
@@ -94,10 +114,9 @@ def find_unmatched(spotify_tracks: List[Dict[str, str]], yt_tracks: List[Dict[st
             yt_base = normalize_title(strip_parens(yt_info["title"]))
             title_score = max(word_ratio(s_title, yt_title), word_ratio(s_base, yt_base))
             artist_ok = _artist_ratio(st["artists"], yt_info["artists"]) >= 0.5
-            if title_score >= 0.5 and artist_ok:
-                if title_score > best_score:
-                    best_score = title_score
-                    best_i = i
+            if title_score >= 0.5 and artist_ok and title_score > best_score:
+                best_score = title_score
+                best_i = i
         if best_i is not None:
             matched_ids.append(yt_tracks[best_i]["videoId"])
             yt_used.add(best_i)
@@ -108,36 +127,98 @@ def find_unmatched(spotify_tracks: List[Dict[str, str]], yt_tracks: List[Dict[st
     return unmatched_spotify, matched_ids, unmatched_yt
 
 
-def sync(spotify_id: str, ytmusic_id: str, preserve: bool = False, personalized: bool = False, dry_run: bool = False):
-    print_banner("Playlist Sync", f"Spotify: {spotify_id} ➔ YouTube Music: {ytmusic_id}")
+def _sync_log(level: str, msg: str, log_cb: Any | None = None):
+    if log_cb:
+        log_cb(level, msg)
+    else:
+        if level == "success":
+            print_success(msg)
+        elif level == "error":
+            print_error(msg)
+        elif level == "warning":
+            print_warning(msg)
+        elif level == "info":
+            print_info(msg)
+        else:
+            console.print(msg)
+
+
+def sync(
+    spotify_id: str,
+    ytmusic_id: str,
+    preserve: bool = False,
+    personalized: bool = False,
+    dry_run: bool = False,
+    log_cb: Any | None = None,
+    progress_cb: Any | None = None,
+) -> dict[str, Any]:
+    if not log_cb:
+        print_banner("Playlist Sync", f"Spotify: {spotify_id} ➔ YouTube Music: {ytmusic_id}")
+    else:
+        log_cb("info", f"Starting Playlist Sync: Spotify ({spotify_id}) ➔ YouTube Music ({ytmusic_id})")
+
     ytm = get_ytmusic_client()
 
-    with console.status("[bold cyan]Fetching Spotify playlist..."):
-        token = get_token(personalized)
-        name, items = fetch_playlist(token, spotify_id)
-    print_info(f"Spotify: [bold cyan]{name}[/bold cyan] ({len(items)} tracks)")
+    if not log_cb and sys.stdout.isatty():
+        status_ctx = console.status("[bold cyan]Fetching Spotify playlist...")
+        status_ctx.__enter__()
+    else:
+        status_ctx = None
+        if log_cb:
+            log_cb("info", "Fetching Spotify playlist metadata...")
 
-    with console.status("[bold cyan]Fetching YouTube Music playlist..."):
+    try:
+        token = get_token(personalized)
+        name, items = fetch_playlist(token, spotify_id, log_cb=log_cb, progress_cb=progress_cb)
+    finally:
+        if status_ctx:
+            status_ctx.__exit__(None, None, None)
+
+    _sync_log("info", f"Spotify: [bold cyan]{name}[/bold cyan] ({len(items)} tracks)", log_cb)
+
+    if not log_cb and sys.stdout.isatty():
+        status_ctx = console.status("[bold cyan]Fetching YouTube Music playlist...")
+        status_ctx.__enter__()
+    else:
+        status_ctx = None
+        if log_cb:
+            log_cb("info", "Fetching YouTube Music playlist...")
+
+    try:
         yt_name, yt_tracks = get_yt_playlist(ytm, ytmusic_id)
-    print_info(f"YouTube Music: [bold cyan]{yt_name}[/bold cyan] ({len(yt_tracks)} tracks)")
+    finally:
+        if status_ctx:
+            status_ctx.__exit__(None, None, None)
+
+    _sync_log("info", f"YouTube Music: [bold cyan]{yt_name}[/bold cyan] ({len(yt_tracks)} tracks)", log_cb)
 
     spotify_tracks = parse_spotify_items(items)
     unmatched_spotify, matched_ids, unmatched_yt = find_unmatched(spotify_tracks, yt_tracks)
 
     to_add = []
+    unique_videos = []
+    not_found = []
     if unmatched_spotify:
-        found_videos, not_found = search_tracks(ytm, unmatched_spotify)
-        to_add = [vid for vid, _, _ in found_videos]
+        if log_cb or progress_cb:
+            found_videos, not_found = search_tracks(ytm, unmatched_spotify, log_cb=log_cb, progress_cb=progress_cb)
+        else:
+            found_videos, not_found = search_tracks(ytm, unmatched_spotify)
         if not_found:
-            print_warning(f"Unmatched on YouTube Music ({len(not_found)} tracks):")
+            _sync_log("warning", f"Unmatched on YouTube Music ({len(not_found)} tracks):", log_cb)
             for t in not_found:
-                console.print(f"  [dim]•[/dim] [yellow]{t['name']}[/yellow] - {t['artists']}")
+                _sync_log("dim", f"  • [yellow]{t['name']}[/yellow] - {t['artists']}", log_cb)
+        if found_videos:
+            if log_cb:
+                unique_videos, _ = deduplicate(found_videos, log_cb=log_cb)
+            else:
+                unique_videos, _ = deduplicate(found_videos)
+            to_add = [vid for vid, _, _ in unique_videos]
     else:
-        print_success("All Spotify tracks matched with existing YouTube tracks!")
+        _sync_log("success", "All Spotify tracks matched with existing YouTube tracks!", log_cb)
 
     to_remove = [] if preserve else unmatched_yt
 
-    print_summary_table(f"Sync Plan: {name}", {
+    stats = {
         "Spotify Tracks": len(spotify_tracks),
         "YouTube Tracks": len(yt_tracks),
         "Already Matched": len(matched_ids),
@@ -145,139 +226,80 @@ def sync(spotify_id: str, ytmusic_id: str, preserve: bool = False, personalized:
         "Tracks To Remove": len(to_remove),
         "Preserve Mode": "[bold green]ON[/bold green]" if preserve else "[dim]OFF[/dim]",
         "Dry Run": "[bold yellow]YES[/bold yellow]" if dry_run else "[dim]NO[/dim]",
-    })
+    }
+
+    if not log_cb:
+        print_summary_table(f"Sync Plan: {name}", stats)
+    else:
+        _sync_log(
+            "info",
+            f"Sync Plan for '{name}': Spotify: {len(spotify_tracks)}, YT: {len(yt_tracks)}, Matched: {len(matched_ids)}, To Add: {len(to_add)}, To Remove: {len(to_remove)}",
+            log_cb,
+        )
+
+    result_summary = {
+        "spotify_name": name,
+        "yt_name": yt_name,
+        "spotify_tracks_count": len(spotify_tracks),
+        "yt_tracks_count": len(yt_tracks),
+        "matched_count": len(matched_ids),
+        "to_add_count": len(to_add),
+        "to_remove_count": len(to_remove),
+        "to_add_items": unique_videos,
+        "to_remove_items": to_remove,
+        "not_found_items": not_found,
+        "dry_run": dry_run,
+        "preserve": preserve,
+        "added": 0,
+        "failed": 0,
+        "removed": 0,
+    }
 
     if dry_run:
-        print_info("Dry run complete. No modifications were made to the playlist.")
-        return
+        if to_add:
+            _sync_log("info", f"Tracks to add ({len(to_add)}):", log_cb)
+            for _, track_name, artists in unique_videos:
+                _sync_log("dim", f"  • [green]{track_name}[/green] - {artists}", log_cb)
+        if to_remove:
+            _sync_log("warning", f"Tracks to remove ({len(to_remove)}):", log_cb)
+            for t in to_remove:
+                _sync_log("dim", f"  • [red]{t['title']}[/red] - {t['artists']}", log_cb)
+        _sync_log("info", "Dry run complete. No modifications were made to the playlist.", log_cb)
+        return result_summary
 
     if to_remove:
-        print_warning(f"Removing {len(to_remove)} track(s) no longer in Spotify playlist:")
+        _sync_log("warning", f"Removing {len(to_remove)} track(s) no longer in Spotify playlist:", log_cb)
         for t in to_remove:
-            console.print(f"  [dim]•[/dim] [red]{t['title']}[/red] - {t['artists']}")
+            _sync_log("dim", f"  • [red]{t['title']}[/red] - {t['artists']}", log_cb)
         remove_entries = []
         for t in to_remove:
             entry = {"videoId": t["videoId"]}
             if t.get("setVideoId"):
                 entry["setVideoId"] = t["setVideoId"]
             remove_entries.append(entry)
-        remove_in_batches(ytm, ytmusic_id, remove_entries)
+        if log_cb or progress_cb:
+            removed_count = remove_in_batches(ytm, ytmusic_id, remove_entries, log_cb=log_cb, progress_cb=progress_cb)
+        else:
+            removed_count = remove_in_batches(ytm, ytmusic_id, remove_entries)
+        result_summary["removed"] = removed_count
 
     if to_add:
-        print_info("Adding missing tracks...")
-        added, failed = add_in_batches(ytm, ytmusic_id, to_add)
-        print_success(f"Added: {added}, Failed: {failed}")
+        _sync_log("info", f"Adding {len(to_add)} missing track(s):", log_cb)
+        for _, track_name, artists in unique_videos:
+            _sync_log("dim", f"  • [green]{track_name}[/green] - {artists}", log_cb)
+        if log_cb or progress_cb:
+            added, failed = add_in_batches(ytm, ytmusic_id, to_add, log_cb=log_cb, progress_cb=progress_cb)
+        else:
+            added, failed = add_in_batches(ytm, ytmusic_id, to_add)
+        _sync_log("success", f"Added: {added}, Failed: {failed}", log_cb)
+        result_summary["added"] = added
+        result_summary["failed"] = failed
 
-    console.print(f"\n[bold green]Playlist URL:[/bold green] https://music.youtube.com/playlist?list={ytmusic_id}\n")
+    if not log_cb:
+        console.print(
+            f"\n[bold green]Playlist URL:[/bold green] https://music.youtube.com/playlist?list={ytmusic_id}\n"
+        )
+    else:
+        _sync_log("success", f"Playlist URL: https://music.youtube.com/playlist?list={ytmusic_id}", log_cb)
 
-
-def build_sync_menu(entries: List[Tuple[str, Dict[str, Any]]], preserve: bool, personalized: bool) -> List[Dict[str, Any]]:
-    items = []
-    for sid, info in entries:
-        items.append({
-            "label": f"{info['name']}",
-            "badge": "READY",
-            "sid": sid
-        })
-    items.append({"separator": True})
-    items.append({
-        "label": "Preserve extra YouTube tracks",
-        "badge": "ON" if preserve else "OFF",
-        "action": "preserve"
-    })
-    items.append({
-        "label": "Personalized Spotify token",
-        "badge": "ON" if personalized else "OFF",
-        "action": "personalized"
-    })
-    items.append({"label": "Sync all registered playlists", "badge": "ALL", "action": "sync_all"})
-    items.append({"label": "Delete all registered playlists", "badge": "DANGER", "action": "delete_all"})
-    items.append({"label": "Exit", "action": "exit"})
-    return items
-
-
-def interactive_sync_menu(preserve: bool = False, personalized: bool = False):
-    data = load_registry()
-
-    if not data:
-        print_banner("Playlist Sync", "Interactive Manager")
-        print_warning("No playlists registered yet.")
-        print_info("Run [cyan]spotiyt import[/cyan] first to export and register playlists.")
-        sys.exit(0)
-
-    entries = list(data.items())
-    items = build_sync_menu(entries, preserve, personalized)
-
-    while True:
-        menu = CursesMenu(items, title="Spotify to YouTube Music - Playlist Sync", subtitle="Select a playlist to sync or configure options")
-        choice = menu.run()
-
-        if choice == -1:
-            console.print("\n[dim]Exited.[/dim]")
-            sys.exit(0)
-
-        item = items[choice]
-        action = item.get("action")
-
-        if action == "exit":
-            console.print("\n[dim]Goodbye![/dim]")
-            sys.exit(0)
-
-        if action == "preserve":
-            preserve = not preserve
-            items = build_sync_menu(entries, preserve, personalized)
-            continue
-
-        if action == "personalized":
-            personalized = not personalized
-            items = build_sync_menu(entries, preserve, personalized)
-            continue
-
-        if action == "sync_all":
-            console.print("\n[bold cyan]Syncing all registered playlists...[/bold cyan]\n")
-            for sid, info in entries:
-                console.rule(f"[bold cyan]{info['name']}[/bold cyan]")
-                sync(sid, info["ytmusic_id"], preserve, personalized)
-            print_success("All registered playlists synchronized successfully!")
-            sys.exit(0)
-
-        if action == "delete_all":
-            confirm_menu = CursesMenu([
-                {"label": "Yes, delete ALL playlists from registry", "badge": "DELETE"},
-                {"label": "Cancel / Go back", "badge": "BACK"},
-            ], title="Confirm Deletion", subtitle="Are you sure you want to remove all playlists from the registry?")
-            if confirm_menu.run() == 0:
-                save_registry({})
-                print_success(f"Removed all {len(entries)} playlist(s) from registry.")
-                sys.exit(0)
-            continue
-
-        sid = item["sid"]
-        info = data[sid]
-
-        sub_menu = CursesMenu([
-            {"label": f"Sync: {info['name']}", "badge": "SYNC"},
-            {"label": f"Preview changes (Dry Run)", "badge": "DRY RUN"},
-            {"label": f"Delete from registry", "badge": "DELETE"},
-            {"label": "Back to main menu", "badge": "BACK"},
-        ], title=f"Manage: {info['name']}", subtitle=f"Spotify ID: {sid} ➔ YTM: {info['ytmusic_id']}")
-        sub_choice = sub_menu.run()
-
-        if sub_choice == 0:
-            console.clear()
-            sync(sid, info["ytmusic_id"], preserve, personalized, dry_run=False)
-            print_success("Sync complete!")
-            sys.exit(0)
-        elif sub_choice == 1:
-            console.clear()
-            sync(sid, info["ytmusic_id"], preserve, personalized, dry_run=True)
-            input("\nPress Enter to return to menu...")
-        elif sub_choice == 2:
-            data.pop(sid)
-            save_registry(data)
-            print_success(f"Removed '{info['name']}' from registry.")
-            entries = list(data.items())
-            if not entries:
-                print_warning("All playlists removed from registry.")
-                sys.exit(0)
-            items = build_sync_menu(entries, preserve, personalized)
+    return result_summary

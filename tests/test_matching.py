@@ -1,8 +1,9 @@
 import unittest
 
 from spotiyt.matching import (
-    clean, normalize_title, strip_version, strip_parens,
-    strip_album_edition, _artist_ratio, _split_artists, word_ratio
+    _artist_ratio,
+    clean,
+    normalize_title,
 )
 
 
@@ -61,5 +62,5 @@ class TestMatchingLogic(unittest.TestCase):
         self.assertLess(_artist_ratio("Metallica", "Coldplay"), 0.5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

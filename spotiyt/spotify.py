@@ -1,20 +1,22 @@
 import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Any
 
 import pyotp
 import requests
 
-from spotiyt.ui import console, print_success, print_error, print_warning, print_info, create_progress
+from spotiyt.config import SP_DC_FILE, ensure_data_dir
+from spotiyt.ui import (
+    create_progress,
+    print_success,
+    print_warning,
+)
 
 GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
 PLAYLIST_HASH = "bb67e0af06e8d6f52b531f97468ee4acd44cd0f82b988e15c2ea47b1148efc77"
-from spotiyt.config import SP_DC_FILE, ensure_data_dir
-
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 
 
@@ -26,13 +28,13 @@ def load_sp_dc() -> str:
     ensure_data_dir()
     path = Path(SP_DC_FILE)
     if not path.exists():
-        print_error(f"Spotify credentials file [yellow]{SP_DC_FILE}[/yellow] not found.")
-        print_info(f"To use personalized playlists, save your Spotify 'sp_dc' cookie to {SP_DC_FILE}.")
-        sys.exit(1)
+        raise FileNotFoundError(
+            f"Spotify credentials file '{SP_DC_FILE}' not found. "
+            f"To use personalized playlists, save your Spotify 'sp_dc' cookie to {SP_DC_FILE}."
+        )
     sp_dc = path.read_text().strip()
     if not sp_dc:
-        print_error(f"[yellow]{SP_DC_FILE}[/yellow] is empty.")
-        sys.exit(1)
+        raise ValueError(f"Spotify credentials file '{SP_DC_FILE}' is empty.")
     return sp_dc
 
 
@@ -52,32 +54,56 @@ def get_token(personalized: bool = True) -> str:
         res = requests.get(token_url, headers={"Cookie": f"sp_dc={sp_dc}", "User-Agent": UA}, timeout=10)
         data = res.json()
         if "accessToken" not in data:
-            raise Exception(f"Token failed: {data}")
+            raise Exception(f"Token response invalid: {data}")
         return data["accessToken"]
     except Exception as e:
-        print_error(f"Failed to authenticate with Spotify: {e}")
-        sys.exit(1)
+        raise RuntimeError(f"Failed to authenticate with Spotify: {e}") from e
 
 
-def fetch_playlist(token: str, playlist_id: str) -> Tuple[str, List[Dict[str, Any]]]:
+def fetch_playlist(
+    token: str, playlist_id: str, log_cb: Any | None = None, progress_cb: Any | None = None
+) -> tuple[str, list[dict[str, Any]]]:
     all_items = []
     offset = 0
     total = 0
     name = ""
 
-    with create_progress() as progress:
-        task = None
+    use_rich_progress = (progress_cb is None) and sys.stdout.isatty()
+    progress_ctx = create_progress() if use_rich_progress else None
+
+    try:
+        if progress_ctx:
+            progress = progress_ctx.__enter__()
+            task = None
+        else:
+            progress = None
+            task = None
+
         while True:
-            for attempt in range(5):
+            for _attempt in range(5):
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}
-                res = requests.post(GQL_URL, json={
-                    "variables": {"uri": f"spotify:playlist:{playlist_id}", "offset": offset, "limit": 100, "enableWatchFeedEntrypoint": False},
-                    "operationName": "fetchPlaylist",
-                    "extensions": {"persistedQuery": {"version": 1, "sha256Hash": PLAYLIST_HASH}},
-                }, headers=headers, timeout=15)
+                res = requests.post(
+                    GQL_URL,
+                    json={
+                        "variables": {
+                            "uri": f"spotify:playlist:{playlist_id}",
+                            "offset": offset,
+                            "limit": 100,
+                            "enableWatchFeedEntrypoint": False,
+                        },
+                        "operationName": "fetchPlaylist",
+                        "extensions": {"persistedQuery": {"version": 1, "sha256Hash": PLAYLIST_HASH}},
+                    },
+                    headers=headers,
+                    timeout=15,
+                )
 
                 if res.status_code in (429, 403):
-                    print_warning(f"Spotify rate limited ({res.status_code}), waiting 30s...")
+                    msg = f"Spotify rate limited ({res.status_code}), waiting 30s..."
+                    if log_cb:
+                        log_cb("warning", msg)
+                    else:
+                        print_warning(msg)
                     time.sleep(30)
                     continue
                 res.raise_for_status()
@@ -93,18 +119,27 @@ def fetch_playlist(token: str, playlist_id: str) -> Tuple[str, List[Dict[str, An
             if offset == 0:
                 name = pv.get("name", "Untitled Playlist")
                 total = pv.get("content", {}).get("totalCount", 0)
-                task = progress.add_task(f"[bold cyan]Fetching Spotify: {name}", total=total)
+                if progress:
+                    task = progress.add_task(f"[bold cyan]Fetching Spotify: {name}", total=total)
+                if log_cb:
+                    log_cb("info", f"Found Spotify Playlist: [bold cyan]{name}[/bold cyan] ({total} tracks)")
 
             items = pv.get("content", {}).get("items", [])
             all_items.extend(items)
             offset += 100
 
-            if task:
+            if progress and task:
                 progress.update(task, completed=min(len(all_items), total))
+            if progress_cb:
+                progress_cb(min(len(all_items), total), total, f"Fetching: {name}")
 
             if offset >= total or not items:
                 break
             time.sleep(0.3)
+
+    finally:
+        if progress_ctx:
+            progress_ctx.__exit__(None, None, None)
 
     return name, all_items
 
@@ -118,10 +153,26 @@ def esc(v: Any) -> str:
     return s
 
 
-def save_csv(name: str, items: List[Dict[str, Any]], output: str) -> str:
-    headers = ["track_name", "artists", "album_name", "album_type", "disc_number", "track_number",
-               "duration_ms", "playcount", "explicit", "media_type", "playable", "added_at",
-               "added_by", "track_uri", "album_uri", "album_art_url", "spotify_url"]
+def save_csv(name: str, items: list[dict[str, Any]], output: str, log_cb: Any | None = None) -> str:
+    headers = [
+        "track_name",
+        "artists",
+        "album_name",
+        "album_type",
+        "disc_number",
+        "track_number",
+        "duration_ms",
+        "playcount",
+        "explicit",
+        "media_type",
+        "playable",
+        "added_at",
+        "added_by",
+        "track_uri",
+        "album_uri",
+        "album_art_url",
+        "spotify_url",
+    ]
 
     full_rows = []
     for item in items:
@@ -137,21 +188,36 @@ def save_csv(name: str, items: List[Dict[str, Any]], output: str) -> str:
         added_by = ((item.get("addedBy") or {}).get("data", {}).get("uri", "")).split(":")[-1]
         art_url = (album.get("coverArt", {}).get("sources") or [{}])[0].get("url", "")
 
-        row = [esc(t.get("name")), esc(artists), esc(album.get("name")), esc(album.get("type")),
-               esc(t.get("discNumber")), esc(t.get("trackNumber")),
-               esc(t.get("trackDuration", {}).get("totalMilliseconds")), esc(t.get("playcount")),
-               esc(t.get("contentRating", {}).get("label") == "EXPLICIT"), esc(t.get("mediaType")),
-               esc(t.get("playability", {}).get("playable")), esc(added_at), esc(added_by),
-               esc(t.get("uri")), esc(album.get("uri")), esc(art_url),
-               f"https://open.spotify.com/track/{track_id}"]
+        row = [
+            esc(t.get("name")),
+            esc(artists),
+            esc(album.get("name")),
+            esc(album.get("type")),
+            esc(t.get("discNumber")),
+            esc(t.get("trackNumber")),
+            esc(t.get("trackDuration", {}).get("totalMilliseconds")),
+            esc(t.get("playcount")),
+            esc(t.get("contentRating", {}).get("label") == "EXPLICIT"),
+            esc(t.get("mediaType")),
+            esc(t.get("playability", {}).get("playable")),
+            esc(added_at),
+            esc(added_by),
+            esc(t.get("uri")),
+            esc(album.get("uri")),
+            esc(art_url),
+            f"https://open.spotify.com/track/{track_id}",
+        ]
         full_rows.append(",".join(row))
 
     Path(output).write_text(",".join(headers) + "\n" + "\n".join(full_rows) + "\n")
-    print_success(f"Saved {len(full_rows)} tracks to [cyan]{output}[/cyan]")
+    if log_cb:
+        log_cb("success", f"Saved {len(full_rows)} tracks to [cyan]{output}[/cyan]")
+    else:
+        print_success(f"Saved {len(full_rows)} tracks to [cyan]{output}[/cyan]")
     return output
 
 
-def parse_spotify_items(items: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def parse_spotify_items(items: list[dict[str, Any]]) -> list[dict[str, str]]:
     tracks = []
     for item in items:
         if item.get("isLocal"):
@@ -161,11 +227,13 @@ def parse_spotify_items(items: List[Dict[str, Any]]) -> List[Dict[str, str]]:
             continue
         artists = "; ".join(a["profile"]["name"] for a in t.get("artists", {}).get("items", []))
         album = t.get("albumOfTrack", {})
-        tracks.append({
-            "name": t.get("name", ""),
-            "artists": artists,
-            "album": album.get("name", ""),
-        })
+        tracks.append(
+            {
+                "name": t.get("name", ""),
+                "artists": artists,
+                "album": album.get("name", ""),
+            }
+        )
     return tracks
 
 
